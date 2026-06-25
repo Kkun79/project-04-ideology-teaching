@@ -132,6 +132,11 @@ body.theme-warm .theme-card[data-theme="warm"] { border-color: var(--accent); }
 }
 .collapse-btn:hover { background: rgba(255,255,255,0.15); }
 
+/* Show menu button when sidebar is collapsed (desktop) */
+.sidebar.collapsed ~ .main-content .menu-btn {
+  display: block;
+}
+
 .main-content {
  flex: 1;
  display: flex;
