@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>思政教学程序</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- 侧边栏 -->
+<aside class="sidebar" id="sidebar">
+ <div class="sidebar-header">
+   <div class="logo"><span>思政</span>教学</div>
+   <button class="collapse-btn" id="collapseBtn" title="收起侧栏">&laquo;</button>
+ </div>
+ <nav class="nav-tree" id="navTree">
+   <ul>
+     <li>
+       <span class="node" data-section="dashboard">首页</span>
+     </li>
+     <li class="has-children expanded">
+       <span class="node parent" data-section="theory">理论</span>
+       <ul>
+         <li class="has-children expanded">
+           <span class="node parent" data-section="knowledge">课内知识</span>
+           <ul>
+             <li><span class="node leaf" data-section="textbooks">教材</span></li>
+             <li><span class="node leaf" data-section="courseware">课件</span></li>
+             <li><span class="node leaf" data-section="syllabus">教学大纲</span></li>
+             <li><span class="node leaf" data-section="references">参考书目</span></li>
+           </ul>
+         </li>
+         <li class="has-children">
+           <span class="node parent" data-section="politics">时政</span>
+           <ul>
+             <li><span class="node leaf" data-section="politics-list">实时更新</span></li>
+           </ul>
+         </li>
+         <li class="has-children">
+           <span class="node parent" data-section="cases">案例</span>
+           <ul>
+             <li><span class="node leaf" data-section="cases-list">经典案例</span></li>
+           </ul>
+         </li>
+         <li class="has-children">
+           <span class="node parent" data-section="keyterms">关键词条</span>
+           <ul>
+             <li><span class="node leaf" data-section="keyterms-list">词条解释</span></li>
+           </ul>
+         </li>
+       </ul>
+     </li>
+     <li class="has-children expanded">
+       <span class="node parent" data-section="practice">实践</span>
+       <ul>
+         <li class="has-children">
+           <span class="node parent" data-section="studytour">研学规划</span>
+           <ul>
+             <li><span class="node leaf" data-section="studytour-list">出方案</span></li>
+           </ul>
+         </li>
+         <li class="has-children">
+           <span class="node parent" data-section="exhibition">虚拟展馆</span>
+           <ul>
+             <li><span class="node leaf" data-section="exhibition-view">展馆参观</span></li>
+           </ul>
+         </li>
+         <li class="has-children">
+           <span class="node parent" data-section="scripts">创作助手</span>
+           <ul>
+             <li><span class="node leaf" data-section="scripts-list">情景剧/演讲稿</span></li>
+           </ul>
+         </li>
+       </ul>
+     </li>
+     <li>
+       <span class="node" data-section="settings">风格设置</span>
+     </li>
+   </ul>
+ </nav>
+</aside>
+
+<!-- 主内容区 -->
+<main class="main-content" id="mainContent">
+
+ <!-- 顶部栏 -->
+ <header class="topbar">
+   <button class="menu-btn" id="menuBtn" title="展开菜单">&equiv;</button>
+   <h2 class="page-title" id="pageTitle">首页</h2>
+   <div class="topbar-actions">
+     <span class="badge" id="statusBadge">就绪</span>
+   </div>
+ </header>
+
+ <!-- 内容面板容器 -->
+ <div class="content-area" id="contentArea">
+
+   <!-- 首页面板 -->
+   <div class="panel active" id="panel-dashboard">
+     <div class="welcome-hero">
+       <h1>欢迎使用思政教学程序</h1>
+       <p>集理论教学、实践教学、资源管理于一体的综合平台</p>
+       <div class="quick-cards">
+         <div class="qcard" onclick="navigateTo('textbooks')">教材管理</div>
+         <div class="qcard" onclick="navigateTo('politics-list')">时政更新</div>
+         <div class="qcard" onclick="navigateTo('cases-list')">案例库</div>
+         <div class="qcard" onclick="navigateTo('studytour-list')">研学规划</div>
+         <div class="qcard" onclick="navigateTo('exhibition-view')">虚拟展馆</div>
+         <div class="qcard" onclick="navigateTo('scripts-list')">情景剧创作</div>
+       </div>
+     </div>
+   </div>
+
+   <!-- ================ 课内知识：教材 ================ -->
+   <div class="panel" id="panel-textbooks">
+     <div class="panel-toolbar">
+       <h3>教材管理</h3>
+       <div class="toolbar-right">
+         <button class="btn btn-primary" onclick="showTextbookForm()">+ 添加教材</button>
+       </div>
+     </div>
+     <div id="textbook-list" class="data-list"></div>
+     <div id="textbook-form" class="form-overlay hidden">
+       <div class="form-card">
+         <h4>添加教材</h4>
+         <input id="tb-name" placeholder="教材名称" />
+         <input id="tb-author" placeholder="作者/编写组" />
+         <input id="tb-publisher" placeholder="出版社" />
+         <input id="tb-year" placeholder="出版年份" />
+         <input id="tb-isbn" placeholder="ISBN（选填）" />
+         <textarea id="tb-desc" placeholder="简介（选填）"></textarea>
+         <div class="form-actions">
+           <button class="btn" onclick="closeForm('textbook-form')">取消</button>
+           <button class="btn btn-primary" onclick="saveTextbook()">保存</button>
+         </div>
+       </div>
+     </div>
+   </div>
+
+   <!-- ================ 课内知识：课件 ================ -->
+   <div class="panel" id="panel-courseware">
+     <div class="panel-toolbar">
+       <h3>课件管理</h3>
+       <div class="toolbar-right">
+         <button class="btn btn-primary" onclick="showCoursewareForm()">+ 添加课件</button>
+       </div>
+     </div>
+     <div id="courseware-list" class="data-list"></div>
+     <div id="courseware-form" class="form-overlay hidden">
+       <div class="form-card">
+         <h4>添加课件</h4>
+         <input id="cw-title" placeholder="课件标题" />
+         <input id="cw-chapter" placeholder="所属章节" />
+         <textarea id="cw-desc" placeholder="描述（选填）"></textarea>
+         <div class="form-actions">
+           <button class="btn" onclick="closeForm('courseware-form')">取消</button>
+           <button class="btn btn-primary" onclick="saveCourseware()">保存</button>
+         </div>
+       </div>
+     </div>
+   </div>
+
+   <!-- ================ 课内知识：教学大纲 ================ -->
+   <div class="panel" id="panel-syllabus">
+     <div class="panel-toolbar">
+       <h3>教学大纲</h3>
+       <div class="toolbar-right">
+         <button class="btn btn-primary" onclick="showSyllabusForm()">+ 添加大纲</button>
+       </div>
+     </div>
+     <div id="syllabus-list" class="data-list"></div>
+     <div id="syllabus-form" class="form-overlay hidden">
+       <div class="form-card">
+         <h4>添加教学大纲</h4>
+         <input id="sy-title" placeholder="大纲标题" />
+         <input id="sy-semester" placeholder="适用学期" />
+         <input id="sy-hours" type="number" placeholder="总学时" />
+         <textarea id="sy-content" placeholder="大纲内容" rows="5"></textarea>
+         <div class="form-actions">
+           <button class="btn" onclick="closeForm('syllabus-form')">取消</button>
+           <button class="btn btn-primary" onclick="saveSyllabus()">保存</button>
+         </div>
+       </div>
+     </div>
+   </div>
+
+   <!-- ================ 课内知识：参考书目 ================ -->
+   <div class="panel" id="panel-references">
+     <div class="panel-toolbar">
+       <h3>参考书目</h3>
+       <div class="toolbar-right">
+         <button class="btn btn-primary" onclick="showReferenceForm()">+ 添加参考书</button>
+       </div>
+     </div>
+     <div id="reference-list" class="data-list"></div>
+     <div id="reference-form" class="form-overlay hidden">
+       <div class="form-card">
+         <h4>添加参考书目</h4>
+         <input id="ref-title" placeholder="书名" />
+         <input id="ref-author" placeholder="作者" />
+         <input id="ref-publisher" placeholder="出版社" />
+         <input id="ref-year" placeholder="出版年份" />
+         <input id="ref-isbn" placeholder="ISBN（选填）" />
+         <textarea id="ref-desc" placeholder="简介（选填）"></textarea>
+         <div class="form-actions">
+           <button class="btn" onclick="closeForm('reference-form')">取消</button>
+           <button class="btn btn-primary" onclick="saveReference()">保存</button>
+         </div>
+       </div>
+     </div>
+   </div>
+
+   <!-- ================ 时政 ================ -->
+   <div class="panel" id="panel-politics-list">
+     <div class="panel-toolbar">
+       <h3>时政更新</h3>
+       <div class="toolbar-right">
+         <button class="btn btn-primary" onclick="showPoliticsForm()">+ 添加时政</button>
+       </div>
+     </div>
+     <div id="politics-list" class="data-list"></div>
+     <div id="politics-form" class="form-overlay hidden">
+       <div class="form-card">
+         <h4>添加时政新闻</h4>
+         <input id="cp-title" placeholder="新闻标题" />
+         <input id="cp-source" placeholder="来源" />
+         <input id="cp-date" type="date" />
+         <textarea id="cp-summary" placeholder="摘要" rows="2"></textarea>
+         <textarea id="cp-content" placeholder="详细内容（选填）" rows="4"></textarea>
+         <input id="cp-url" placeholder="原文链接（选填）" />
+         <input id="cp-tags" placeholder="标签（逗号分隔，选填）" />
+         <div class="form-actions">
+           <button class="btn" onclick="closeForm('politics-form')">取消</button>
+           <button class="btn btn-primary" onclick="savePolitics()">保存</button>
+         </div>
+       </div>
+     </div>
+   </div>
+
+   <!-- ================ 案例 ================ -->
+   <div class="panel" id="panel-cases-list">
+     <div class="panel-toolbar">
+       <h3>经典案例库</h3>
+       <div class="toolbar-right">
+         <button class="btn btn-primary" onclick="showCaseForm()">+ 添加案例</button>
+       </div>
+     </div>
+     <div class="filter-bar">
+       <select id="case-filter-category" onchange="loadCases()">
+         <option value="">全部分类</option>
+         <option value="先进模范">先进模范</option>
+         <option value="改革开放">改革开放</option>
+         <option value="新时代成就">新时代成就</option>
+         <option value="历史事件">历史事件</option>
+         <option value="经济发展">经济发展</option>
+       </select>
+       <select id="case-filter-era" onchange="loadCases()">
+         <option value="">全部时期</option>
+         <option value="近代史">近代史</option>
+         <option value="社会主义建设时期">社会主义建设时期</option>
+         <option value="改革开放时期">改革开放时期</option>
+         <option value="新时代">新时代</option>
+       </select>
+       <input id="case-filter-keyword" placeholder="搜索关键词" oninput="loadCases()" />
+     </div>
+     <div id="case-list" class="data-list"></div>
+     <div id="case-form" class="form-overlay hidden">
+       <div class="form-card">
+         <h4>添加案例</h4>
+         <input id="case-title" placeholder="案例标题" />
+         <input id="case-category" placeholder="分类" />
+         <input id="case-era" placeholder="时期" />
+         <textarea id="case-summary" placeholder="摘要" rows="2"></textarea>
+         <textarea id="case-content" placeholder="详细内容" rows="4"></textarea>
+         <input id="case-tags" placeholder="标签（逗号分隔）" />
+         <input id="case-source" placeholder="来源（选填）" />
+         <div class="form-actions">
+           <button class="btn" onclick="closeForm('case-form')">取消</button>
+           <button class="btn btn-primary" onclick="saveCase()">保存</button>
+         </div>
+       </div>
+     </div>
+   </div>
+
+   <!-- ================ 关键词条 ================ -->
+   <div class="panel" id="panel-keyterms-list">
+     <div class="panel-toolbar">
+       <h3>关键词条解释</h3>
+       <div class="toolbar-right">
+         <button class="btn btn-primary" onclick="showKeyTermForm()">+ 添加词条</button>
+       </div>
+     </div>
+     <div id="keyterm-list" class="data-list term-cards"></div>
+     <div id="keyterm-form" class="form-overlay hidden">
+       <div class="form-card">
+         <h4>添加关键词条</h4>
+         <input id="kt-term" placeholder="关键词" />
+         <input id="kt-time" placeholder="提出时间" />
+         <textarea id="kt-meaning" placeholder="内涵/含义" rows="2"></textarea>
+         <textarea id="kt-significance" placeholder="意义" rows="2"></textarea>
+         <input id="kt-source" placeholder="来源刊文/讲话" />
+         <input id="kt-url" placeholder="超链接URL（选填）" />
+         <input id="kt-related" placeholder="相关词条（逗号分隔，选填）" />
+         <div class="form-actions">
+           <button class="btn" onclick="closeForm('keyterm-form')">取消</button>
+           <button class="btn btn-primary" onclick="saveKeyTerm()">保存</button>
+         </div>
+       </div>
+     </div>
+   </div>
+
+   <!-- ================ 研学规划 ================ -->
+   <div class="panel" id="panel-studytour-list">
+     <div class="panel-toolbar">
+       <h3>研学规划与方案</h3>
+       <div class="toolbar-right">
+         <button class="btn btn-secondary" onclick="showAIGenerateTour()">AI 生成方案</button>
+       </div>
+     </div>
+     <div id="studytour-list" class="data-list"></div>
+     <div id="studytour-ai-form" class="form-overlay hidden">
+       <div class="form-card">
+         <h4><span class="ai-badge">AI</span> 生成研学方案</h4>
+         <input id="st-ai-dest" placeholder="研学目的地" />
+         <input id="st-ai-duration" placeholder="时长（如：3天）" value="3天" />
+         <select id="st-ai-theme">
+           <option value="红色">红色主题</option>
+           <option value="传统文化">传统文化主题</option>
+           <option value="改革开放">改革开放主题</option>
+         </select>
+         <div class="form-actions">
+           <button class="btn" onclick="closeForm('studytour-ai-form')">取消</button>
+           <button class="btn btn-primary" onclick="generateStudyTour()">生成并保存</button>
+         </div>
+       </div>
+     </div>
+   </div>
+
+   <!-- ================ 虚拟展馆 ================ -->
+   <div class="panel" id="panel-exhibition-view">
+     <div class="panel-toolbar">
+       <h3>虚拟展馆</h3>
+       <div class="toolbar-right">
+         <span class="badge badge-info">沉浸体验</span>
+       </div>
+     </div>
+     <div class="exhibition-container">
+       <div class="exhibit-nav" id="exhibit-nav"></div>
+       <div class="exhibit-stage" id="exhibit-stage">
+         <div class="exhibit-placeholder">点击左侧展品开始参观</div>
+       </div>
+     </div>
+   </div>
+
+   <!-- ================ 情景剧/演讲稿 ================ -->
+   <div class="panel" id="panel-scripts-list">
+     <div class="panel-toolbar">
+       <h3>情景剧与演讲稿</h3>
+       <div class="toolbar-right">
+         <button class="btn btn-secondary" onclick="showAIScriptForm()">AI 生成</button>
+         <button class="btn btn-primary" onclick="showScriptForm()">+ 手动添加</button>
+       </div>
+     </div>
+     <div id="script-list" class="data-list"></div>
+     <div id="script-form" class="form-overlay hidden">
+       <div class="form-card">
+         <h4>添加作品</h4>
+         <input id="sc-title" placeholder="标题" />
+         <select id="sc-type">
+           <option value="情景剧">情景剧</option>
+           <option value="演讲稿">演讲稿</option>
+         </select>
+         <input id="sc-theme" placeholder="主题" />
+         <input id="sc-characters" placeholder="角色（情景剧，选填）" />
+         <textarea id="sc-content" placeholder="内容" rows="8"></textarea>
+         <input id="sc-notes" placeholder="备注（选填）" />
+         <div class="form-actions">
+           <button class="btn" onclick="closeForm('script-form')">取消</button>
+           <button class="btn btn-primary" onclick="saveScript()">保存</button>
+         </div>
+       </div>
+     </div>
+     <div id="script-ai-form" class="form-overlay hidden">
+       <div class="form-card">
+         <h4><span class="ai-badge">AI</span> 生成作品</h4>
+         <select id="sc-ai-type">
+           <option value="演讲稿">演讲稿</option>
+           <option value="情景剧">情景剧</option>
+         </select>
+         <input id="sc-ai-theme" placeholder="主题（如：中国梦、爱国主义、红色传承）" />
+         <input id="sc-ai-characters" placeholder="角色设定（情景剧，选填）" />
+         <div class="form-actions">
+           <button class="btn" onclick="closeForm('script-ai-form')">取消</button>
+           <button class="btn btn-primary" onclick="generateScript()">生成并保存</button>
+         </div>
+       </div>
+     </div>
+   </div>
+
+   <!-- ================ 风格设置 ================ -->
+   <div class="panel" id="panel-settings">
+     <div class="panel-toolbar">
+       <h3>风格设置</h3>
+     </div>
+     <div class="settings-container">
+       <div class="setting-group">
+         <h4>主题风格</h4>
+         <div class="theme-options">
+           <label class="theme-card selected" data-theme="default">
+             <div class="theme-preview theme-default"></div>
+             <span>经典红</span>
+           </label>
+           <label class="theme-card" data-theme="blue">
+             <div class="theme-preview theme-blue"></div>
+             <span>深邃蓝</span>
+           </label>
+           <label class="theme-card" data-theme="green">
+             <div class="theme-preview theme-green"></div>
+             <span>青松绿</span>
+           </label>
+           <label class="theme-card" data-theme="warm">
+             <div class="theme-preview theme-warm"></div>
+             <span>暖阳橙</span>
+           </label>
+         </div>
+       </div>
+       <div class="setting-group">
+         <h4>侧边栏模式</h4>
+         <select id="sidebar-mode" onchange="setSidebarMode(this.value)">
+           <option value="normal">标准</option>
+           <option value="compact">紧凑</option>
+           <option value="icon-only">图标</option>
+         </select>
+       </div>
+       <div class="setting-group">
+         <h4>数据显示</h4>
+         <label><input type="checkbox" id="show-ids" onchange="toggleShowIds()" /> 显示 ID</label>
+       </div>
+       <div class="setting-group">
+         <p class="hint">设置会自动保存到本地。更多个性化功能正在开发中。</p>
+       </div>
+     </div>
+   </div>
+
+ </div>
+</main>
+
+<script src="/static/js/toast.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
