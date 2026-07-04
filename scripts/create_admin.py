@@ -17,8 +17,8 @@ def main() -> int:
         print("ADMIN_USERNAME or ADMIN_PASSWORD is not configured. Skipping admin initialization.")
         return 0
 
-    user = auth_service.upsert_user(username, password)
-    print(f"Admin account is ready: {user['username']}")
+    auth_service.upsert_user(username, password)
+    print("Admin account is ready.")
     return 0
 
 
