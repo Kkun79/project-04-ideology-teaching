@@ -24,11 +24,14 @@ Use this path when the local computer cannot push to `huggingface.co`.
 3. Click `Run workflow`.
 4. Choose branch `main`.
 
-The workflow pushes this repository to:
+The workflow uploads the repository contents to:
 
 ```text
 https://huggingface.co/spaces/shenjiankun/project-04-ideology-teaching
 ```
+
+This workflow uses Hugging Face's official `hub-sync` action instead of a raw
+`git push`, which is more reliable for Spaces containing static assets.
 
 ## 4. Add Space secrets
 
