@@ -7,7 +7,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 ENV_FILE = ROOT / ".env"
 
-TABLES = ("users", "sessions", "audit_logs", "sync_runs")
+TABLES = ("users", "sessions", "audit_logs", "sync_runs", "invite_codes")
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS users (
@@ -46,12 +46,21 @@ CREATE TABLE IF NOT EXISTS sync_runs (
     detail JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
+CREATE TABLE IF NOT EXISTS invite_codes (
+    code_hash TEXT PRIMARY KEY,
+    code_hint TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    used_at TIMESTAMPTZ,
+    used_by TEXT REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_sync_runs_type_started ON sync_runs(sync_type, started_at);
+CREATE INDEX IF NOT EXISTS idx_invite_codes_used_at ON invite_codes(used_at);
 """
 
 

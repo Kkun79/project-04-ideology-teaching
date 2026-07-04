@@ -5,6 +5,11 @@
 const AUTH_TOKEN_KEY = "project04_auth_token";
 const AUTH_USER_KEY = "project04_auth_user";
 let authMode = "login";
+let authConfig = {
+  registration_mode: "open",
+  registration_enabled: true,
+  invite_required: false
+};
 
 function getAuthToken() {
   return localStorage.getItem(AUTH_TOKEN_KEY) || "";
@@ -36,18 +41,67 @@ function setAuthMessage(message, isError = false) {
 }
 
 function setAuthMode(mode) {
-  authMode = mode === "register" ? "register" : "login";
+  if (mode === "register" && !authConfig.registration_enabled) {
+    authMode = "login";
+  } else {
+    authMode = mode === "register" ? "register" : "login";
+  }
   const title = document.getElementById("auth-title");
   const subtitle = document.getElementById("auth-subtitle");
   const submit = document.getElementById("auth-submit");
   const switchBtn = document.getElementById("auth-switch");
   const password = document.getElementById("auth-password");
+  const inviteWrap = document.getElementById("auth-invite-wrap");
+  const inviteInput = document.getElementById("auth-invite-code");
   if (title) title.textContent = authMode === "register" ? "注册账号" : "账号登录";
-  if (subtitle) subtitle.textContent = authMode === "register" ? "创建账号后直接进入教学工作台" : "登录后进入教学工作台";
+  if (subtitle) {
+    if (authMode === "register" && authConfig.invite_required) {
+      subtitle.textContent = "仅限已获批准的用户注册，请输入邀请码";
+    } else if (authMode === "register") {
+      subtitle.textContent = "创建账号后直接进入教学工作台";
+    } else if (authConfig.registration_mode === "closed") {
+      subtitle.textContent = "当前不开放公开注册";
+    } else if (authConfig.invite_required) {
+      subtitle.textContent = "登录后进入教学工作台，如需注册请先获取邀请码";
+    } else {
+      subtitle.textContent = "登录后进入教学工作台";
+    }
+  }
   if (submit) submit.textContent = authMode === "register" ? "注册并进入" : "登录";
-  if (switchBtn) switchBtn.textContent = authMode === "register" ? "已有账号？返回登录" : "还没有账号？注册账号";
+  if (switchBtn) {
+    if (!authConfig.registration_enabled) {
+      switchBtn.classList.add("hidden");
+      switchBtn.disabled = true;
+    } else {
+      switchBtn.classList.remove("hidden");
+      switchBtn.disabled = false;
+      switchBtn.textContent = authMode === "register"
+        ? "已有账号？返回登录"
+        : (authConfig.invite_required ? "没有账号？输入邀请码注册" : "还没有账号？注册账号");
+    }
+  }
   if (password) password.autocomplete = authMode === "register" ? "new-password" : "current-password";
+  if (inviteWrap) inviteWrap.classList.toggle("hidden", !(authMode === "register" && authConfig.invite_required));
+  if (inviteInput) {
+    inviteInput.required = authMode === "register" && authConfig.invite_required;
+    if (authMode !== "register" || !authConfig.invite_required) inviteInput.value = "";
+  }
   setAuthMessage("");
+}
+
+async function loadAuthConfig() {
+  try {
+    const res = await fetch("/api/auth/config");
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "读取注册配置失败");
+    authConfig = Object.assign({}, authConfig, data || {});
+  } catch (e) {
+    authConfig = {
+      registration_mode: "open",
+      registration_enabled: true,
+      invite_required: false
+    };
+  }
 }
 
 function lockAppForAuth(message = "") {
@@ -68,18 +122,25 @@ async function submitAuthForm(event) {
   event.preventDefault();
   const username = document.getElementById("auth-username")?.value?.trim() || "";
   const password = document.getElementById("auth-password")?.value || "";
+  const inviteCode = document.getElementById("auth-invite-code")?.value?.trim() || "";
   const btn = document.getElementById("auth-submit");
   if (!username || !password) {
     setAuthMessage("请填写账号和密码", true);
     return;
   }
+  if (authMode === "register" && authConfig.invite_required && !inviteCode) {
+    setAuthMessage("请输入邀请码", true);
+    return;
+  }
   if (btn) btn.disabled = true;
   setAuthMessage(authMode === "register" ? "正在注册..." : "正在登录...");
   try {
+    const payload = { username, password };
+    if (authMode === "register" && authConfig.invite_required) payload.invite_code = inviteCode;
     const res = await fetch(authMode === "register" ? "/api/auth/register" : "/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify(payload)
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || "操作失败");
@@ -118,13 +179,14 @@ async function logoutAccount() {
   lockAppForAuth("已退出登录");
 }
 
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", async function() {
   const form = document.getElementById("auth-form");
   const switchBtn = document.getElementById("auth-switch");
   if (form) form.addEventListener("submit", submitAuthForm);
   if (switchBtn) switchBtn.addEventListener("click", function() {
     setAuthMode(authMode === "register" ? "login" : "register");
   });
+  await loadAuthConfig();
   setAuthMode("login");
   checkExistingAuth();
 });

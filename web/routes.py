@@ -71,12 +71,20 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
     @app.post("/api/auth/register")
     async def register_account(data: dict):
         try:
-            user = auth_service.register_user(data.get("username", ""), data.get("password", ""))
+            user = auth_service.register_user(
+                data.get("username", ""),
+                data.get("password", ""),
+                data.get("invite_code", ""),
+            )
             return auth_service.create_session(user)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    @app.get("/api/auth/config")
+    async def auth_config():
+        return auth_service.registration_config()
 
     @app.post("/api/auth/login")
     async def login_account(data: dict):

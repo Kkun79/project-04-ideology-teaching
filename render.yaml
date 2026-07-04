@@ -8,8 +8,10 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
-      - key: APP_REGISTRATION_ENABLED
-        value: "false"
+      - key: APP_REGISTRATION_MODE
+        value: "invite_only"
+      - key: APP_REGISTRATION_INVITE_CODES
+        sync: false
       - key: ADMIN_USERNAME
         sync: false
       - key: ADMIN_PASSWORD

@@ -14,11 +14,18 @@ Render will prompt for these secret values:
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD`
 - `DEEPSEEK_API_KEY`
+- `APP_REGISTRATION_INVITE_CODES`
 
-The public registration endpoint is disabled on Render by:
+Render defaults to invite-only registration:
 
 ```text
-APP_REGISTRATION_ENABLED=false
+APP_REGISTRATION_MODE=invite_only
+```
+
+Use `APP_REGISTRATION_INVITE_CODES` to define who can register, for example:
+
+```text
+teacher-a01,teacher-a02
 ```
 
 ## Neon database
@@ -53,4 +60,5 @@ python scripts/init_postgres.py && python scripts/create_admin.py && uvicorn mai
 - Open the public Render URL.
 - Check `/api/auth/db-health`.
 - Log in with the admin account.
-- Confirm `/api/auth/register` returns a closed-registration message.
+- Check `/api/auth/config` and confirm `registration_mode` is `invite_only`.
+- Confirm registration without an invite code is rejected.

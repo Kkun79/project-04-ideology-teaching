@@ -30,11 +30,18 @@ Add these as Space secrets:
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD`
 - `DEEPSEEK_API_KEY`
+- `APP_REGISTRATION_INVITE_CODES`
 
-Public registration is disabled by default in the Docker image:
+The Docker image now uses invite-only registration by default:
 
 ```text
-APP_REGISTRATION_ENABLED=false
+APP_REGISTRATION_MODE=invite_only
+```
+
+`APP_REGISTRATION_INVITE_CODES` can use commas, semicolons, or new lines, for example:
+
+```text
+class2026-a1,class2026-a2
 ```
 
 ## Verify after deploy
@@ -42,4 +49,5 @@ APP_REGISTRATION_ENABLED=false
 - Open the Space public URL.
 - Check `/api/auth/db-health`.
 - Log in with the admin account.
-- Confirm `/api/auth/register` returns a closed-registration message.
+- Check `/api/auth/config` and confirm `registration_mode` is `invite_only`.
+- Confirm registration without an invite code is rejected.

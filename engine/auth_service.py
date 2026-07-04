@@ -15,6 +15,8 @@ TOKEN_TTL_HOURS = 12
 _SESSIONS: dict[str, dict[str, Any]] = {}
 _DB_INITIALIZED = False
 _DB_MIGRATED = False
+_INVITE_CODES_SYNC_SIGNATURE = ""
+_USED_INVITE_CODES: set[str] = set()
 
 MSG_USERNAME_RULE = "\u8d26\u53f7\u957f\u5ea6\u9700\u8981\u5728 3 \u5230 24 \u4e2a\u5b57\u7b26\u4e4b\u95f4"
 MSG_USERNAME_CHARS = "\u8d26\u53f7\u53ea\u80fd\u5305\u542b\u4e2d\u6587\u3001\u5b57\u6bcd\u3001\u6570\u5b57\u3001\u4e0b\u5212\u7ebf\u6216\u77ed\u6a2a\u7ebf"
@@ -22,6 +24,8 @@ MSG_PASSWORD_RULE = "\u5bc6\u7801\u957f\u5ea6\u9700\u8981\u5728 6 \u5230 64 \u4e
 MSG_USER_EXISTS = "\u8be5\u8d26\u53f7\u5df2\u7ecf\u5b58\u5728"
 MSG_BAD_CREDENTIALS = "\u8d26\u53f7\u6216\u5bc6\u7801\u4e0d\u6b63\u786e"
 MSG_REGISTER_CLOSED = "\u5f53\u524d\u4e0d\u5f00\u653e\u516c\u5f00\u6ce8\u518c"
+MSG_INVITE_REQUIRED = "\u8be5\u6ce8\u518c\u901a\u9053\u9700\u8981\u9080\u8bf7\u7801"
+MSG_INVITE_INVALID = "\u9080\u8bf7\u7801\u65e0\u6548\u6216\u5df2\u88ab\u4f7f\u7528"
 
 
 def _now() -> datetime:
@@ -79,9 +83,102 @@ def _db_enabled() -> bool:
     return db.is_database_configured()
 
 
+def _config_value(name: str) -> str:
+    value = os.environ.get(name, "").strip()
+    if value:
+        return value
+    return db._load_env_file().get(name, "").strip()
+
+
+def registration_mode() -> str:
+    mode = _config_value("APP_REGISTRATION_MODE").lower()
+    if mode in {"open", "closed", "invite_only"}:
+        return mode
+    enabled = _config_value("APP_REGISTRATION_ENABLED").lower()
+    return "closed" if enabled in {"0", "false", "no", "off"} else "open"
+
+
 def registration_enabled() -> bool:
-    value = os.environ.get("APP_REGISTRATION_ENABLED", "").strip().lower()
-    return value not in {"0", "false", "no", "off"}
+    return registration_mode() != "closed"
+
+
+def registration_config() -> dict[str, Any]:
+    try:
+        _ensure_database()
+    except Exception:
+        pass
+    mode = registration_mode()
+    return {
+        "registration_mode": mode,
+        "registration_enabled": mode != "closed",
+        "invite_required": mode == "invite_only",
+    }
+
+
+def _clean_invite_code(invite_code: str) -> str:
+    return str(invite_code or "").strip()
+
+
+def _invite_code_hash(invite_code: str) -> str:
+    return hashlib.sha256(_clean_invite_code(invite_code).encode("utf-8")).hexdigest()
+
+
+def _invite_code_hint(invite_code: str) -> str:
+    code = _clean_invite_code(invite_code)
+    if len(code) <= 4:
+        return "*" * len(code)
+    return code[:2] + "*" * max(2, len(code) - 4) + code[-2:]
+
+
+def _configured_invite_codes() -> list[str]:
+    raw_value = _config_value("APP_REGISTRATION_INVITE_CODES")
+    if not raw_value:
+        return []
+    parts = []
+    seen = set()
+    normalized = raw_value.replace("\r", "\n").replace(";", "\n").replace(",", "\n")
+    for piece in normalized.split("\n"):
+        code = _clean_invite_code(piece)
+        if not code or code in seen:
+            continue
+        seen.add(code)
+        parts.append(code)
+    return parts
+
+
+def _invite_codes_signature(codes: list[str]) -> str:
+    return "|".join(sorted(_invite_code_hash(code) for code in codes))
+
+
+def _sync_invite_codes_to_db() -> None:
+    global _INVITE_CODES_SYNC_SIGNATURE
+    if not _db_enabled():
+        return
+    codes = _configured_invite_codes()
+    code_hashes = [_invite_code_hash(code) for code in codes]
+    signature = _invite_codes_signature(codes)
+    if signature == _INVITE_CODES_SYNC_SIGNATURE:
+        return
+    with db.get_connection() as conn:
+        with conn.cursor() as cur:
+            if code_hashes:
+                cur.execute(
+                    "DELETE FROM invite_codes WHERE used_at IS NULL AND NOT (code_hash = ANY(%s))",
+                    (code_hashes,),
+                )
+            else:
+                cur.execute("DELETE FROM invite_codes WHERE used_at IS NULL")
+            for code in codes:
+                cur.execute(
+                    """
+                    INSERT INTO invite_codes (code_hash, code_hint)
+                    VALUES (%s, %s)
+                    ON CONFLICT (code_hash) DO NOTHING
+                    """,
+                    (_invite_code_hash(code), _invite_code_hint(code)),
+                )
+        conn.commit()
+    _INVITE_CODES_SYNC_SIGNATURE = signature
 
 
 def _ensure_database() -> None:
@@ -94,6 +191,7 @@ def _ensure_database() -> None:
     if not _DB_MIGRATED:
         _migrate_json_users_to_db()
         _DB_MIGRATED = True
+    _sync_invite_codes_to_db()
 
 
 def _migrate_json_users_to_db() -> None:
@@ -250,17 +348,30 @@ def upsert_user(username: str, password: str) -> dict:
     return _public_user(saved_user or {"id": saved_id, "username": clean_username, "status": "active"})
 
 
-def register_user(username: str, password: str) -> dict:
-    if not registration_enabled():
-        raise ValueError(MSG_REGISTER_CLOSED)
+def _require_valid_invite(invite_code: str) -> str:
+    code = _clean_invite_code(invite_code)
+    if not code:
+        raise ValueError(MSG_INVITE_REQUIRED)
+    return code
 
+
+def _consume_local_invite_code(invite_code: str) -> str:
+    code = _require_valid_invite(invite_code)
+    if code not in _configured_invite_codes() or _invite_code_hash(code) in _USED_INVITE_CODES:
+        raise ValueError(MSG_INVITE_INVALID)
+    _USED_INVITE_CODES.add(_invite_code_hash(code))
+    return code
+
+
+def register_user(username: str, password: str, invite_code: str = "") -> dict:
+    mode = registration_mode()
+    if mode == "closed":
+        raise ValueError(MSG_REGISTER_CLOSED)
     clean_username = validate_username(username)
     clean_password = validate_password(password)
+    clean_invite_code = _require_valid_invite(invite_code) if mode == "invite_only" else ""
     if _db_enabled():
         _ensure_database()
-        if _db_find_user(clean_username):
-            raise ValueError(MSG_USER_EXISTS)
-
         salt = secrets.token_hex(16)
         user = {
             "id": "u_" + secrets.token_hex(8),
@@ -271,6 +382,21 @@ def register_user(username: str, password: str) -> dict:
         }
         with db.get_connection() as conn:
             with conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM users WHERE lower(username) = lower(%s)", (clean_username,))
+                if cur.fetchone():
+                    raise ValueError(MSG_USER_EXISTS)
+                if mode == "invite_only":
+                    cur.execute(
+                        """
+                        SELECT code_hash
+                        FROM invite_codes
+                        WHERE code_hash = %s AND used_at IS NULL
+                        FOR UPDATE
+                        """,
+                        (_invite_code_hash(clean_invite_code),),
+                    )
+                    if not cur.fetchone():
+                        raise ValueError(MSG_INVITE_INVALID)
                 cur.execute(
                     """
                     INSERT INTO users (id, username, password_hash, salt, status, created_at)
@@ -284,13 +410,24 @@ def register_user(username: str, password: str) -> dict:
                         user["status"],
                     ),
                 )
+                if mode == "invite_only":
+                    cur.execute(
+                        """
+                        UPDATE invite_codes
+                        SET used_at = now(), used_by = %s
+                        WHERE code_hash = %s
+                        """,
+                        (user["id"], _invite_code_hash(clean_invite_code)),
+                    )
             conn.commit()
         saved_user = _db_find_user(clean_username) or user
-        _write_audit("register", saved_user["id"], {"username": clean_username})
+        _write_audit("register", saved_user["id"], {"username": clean_username, "mode": mode})
         return _public_user(saved_user)
 
     if _find_user(clean_username):
         raise ValueError(MSG_USER_EXISTS)
+    if mode == "invite_only":
+        _consume_local_invite_code(clean_invite_code)
 
     salt = secrets.token_hex(16)
     user = {
