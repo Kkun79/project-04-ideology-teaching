@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: project-04-ideology-teaching
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/init_postgres.py && python scripts/create_admin.py && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: project-04-db
+          property: connectionString
+      - key: APP_REGISTRATION_ENABLED
+        value: "false"
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: OPENAI_API_BASE
+        value: https://api.deepseek.com/v1
+      - key: OPENAI_MODEL
+        value: deepseek-chat
+
+databases:
+  - name: project-04-db
+    databaseName: project04_db
+    user: project04_app

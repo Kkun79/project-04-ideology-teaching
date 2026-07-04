@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="350" viewBox="0 0 800 350">
+  <defs>
+    <linearGradient id="bg_ex078" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7B3F98;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4A235A;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="ov_ex078" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgba(0,0,0,0.2);stop-opacity:1" />
+      <stop offset="100%" style="stop-color:rgba(0,0,0,0.55);stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="350" fill="url(#bg_ex078)"/>
+  <rect width="800" height="350" fill="url(#ov_ex078)"/>
+    <circle cx="400" cy="180" r="40" fill="none" stroke="#F9E79F" stroke-width="2" opacity="0.35"/>
+  <circle cx="400" cy="180" r="70" fill="none" stroke="#F9E79F" stroke-width="1.2" opacity="0.15"/>
+  <circle cx="400" cy="180" r="100" fill="none" stroke="#F9E79F" stroke-width="1.2" opacity="0.15"/>
+  <circle cx="467" cy="236" r="46" fill="none" stroke="#F9E79F" stroke-width="1" opacity="0.15"/>
+  <circle cx="346" cy="240" r="31" fill="none" stroke="#F9E79F" stroke-width="1" opacity="0.15"/>
+  <circle cx="453" cy="229" r="25" fill="none" stroke="#F9E79F" stroke-width="1" opacity="0.15"/>
+  <line x1="40" y1="40" x2="100" y2="40" stroke="#F9E79F" stroke-width="1" opacity="0.3"/>
+  <line x1="40" y1="40" x2="40" y2="100" stroke="#F9E79F" stroke-width="1" opacity="0.3"/>
+  <line x1="700" y1="300" x2="760" y2="300" stroke="#F9E79F" stroke-width="1" opacity="0.3"/>
+  <line x1="760" y1="300" x2="760" y2="240" stroke="#F9E79F" stroke-width="1" opacity="0.3"/>
+  <text x="400" y="155" font-family="serif" font-size="32" fill="#F9E79F" text-anchor="middle" font-weight="bold">福建——古田会议会址</text>
+  <rect x="310" y="210" width="180" height="24" rx="12" fill="rgba(255,255,255,0.08)" stroke="#F9E79F" stroke-width="0.5"/>
+  <text x="400" y="226" font-family="sans-serif" font-size="12" fill="#F9E79F" text-anchor="middle" opacity="0.85">&#9679; 华东地区  |  1929年</text>
+  <line x1="300" y1="255" x2="500" y2="255" stroke="#F9E79F" stroke-width="0.5" opacity="0.3"/>
+  <text x="400" y="295" font-family="sans-serif" font-size="13" fill="#D7BDE2" text-anchor="middle" opacity="0.7">古田会议会址位于福建省龙岩市上杭县古田镇……</text>
+</svg>

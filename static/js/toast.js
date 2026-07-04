@@ -51,7 +51,11 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── 增强 fetch：出错时 toast ──
 async function safeFetch(url, opts = {}) {
   try {
+    opts.headers = typeof authHeaders === "function" ? authHeaders(opts.headers || {}) : (opts.headers || {});
     const res = await fetch(url, opts);
+    if (res.status === 401 && typeof lockAppForAuth === "function") {
+      lockAppForAuth("请先登录后再使用程序");
+    }
     if (!res.ok) {
       const detail = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
       throw new Error(detail.detail || `请求失败 (${res.status})`);

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="350" viewBox="0 0 800 350">
+  <defs>
+    <linearGradient id="bg_ex123" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7D3C98;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3E1F47;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="ov_ex123" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgba(0,0,0,0.2);stop-opacity:1" />
+      <stop offset="100%" style="stop-color:rgba(0,0,0,0.55);stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="350" fill="url(#bg_ex123)"/>
+  <rect width="800" height="350" fill="url(#ov_ex123)"/>
+    <circle cx="400" cy="180" r="40" fill="none" stroke="#D7BDE2" stroke-width="2" opacity="0.35"/>
+  <circle cx="400" cy="180" r="70" fill="none" stroke="#D7BDE2" stroke-width="1.2" opacity="0.15"/>
+  <circle cx="400" cy="180" r="100" fill="none" stroke="#D7BDE2" stroke-width="1.2" opacity="0.15"/>
+  <rect x="350" y="173" width="20" height="47" rx="2" fill="#D7BDE2" opacity="0.3"/>
+  <rect x="380" y="196" width="20" height="24" rx="2" fill="#D7BDE2" opacity="0.3"/>
+  <rect x="400" y="170" width="20" height="50" rx="2" fill="#D7BDE2" opacity="0.3"/>
+  <rect x="420" y="197" width="20" height="23" rx="2" fill="#D7BDE2" opacity="0.3"/>
+  <rect x="450" y="176" width="20" height="44" rx="2" fill="#D7BDE2" opacity="0.3"/>
+  <rect x="370" y="160" width="60" height="10" rx="2" fill="#D7BDE2" opacity="0.25"/>
+  <line x1="40" y1="40" x2="100" y2="40" stroke="#D7BDE2" stroke-width="1" opacity="0.3"/>
+  <line x1="40" y1="40" x2="40" y2="100" stroke="#D7BDE2" stroke-width="1" opacity="0.3"/>
+  <line x1="700" y1="300" x2="760" y2="300" stroke="#D7BDE2" stroke-width="1" opacity="0.3"/>
+  <line x1="760" y1="300" x2="760" y2="240" stroke="#D7BDE2" stroke-width="1" opacity="0.3"/>
+  <text x="400" y="155" font-family="serif" font-size="32" fill="#D7BDE2" text-anchor="middle" font-weight="bold">云南——扎西会议纪念馆</text>
+  <rect x="310" y="210" width="180" height="24" rx="12" fill="rgba(255,255,255,0.08)" stroke="#D7BDE2" stroke-width="0.5"/>
+  <text x="400" y="226" font-family="sans-serif" font-size="12" fill="#D7BDE2" text-anchor="middle" opacity="0.85">&#9679; 西南地区  |  1935年</text>
+  <line x1="300" y1="255" x2="500" y2="255" stroke="#D7BDE2" stroke-width="0.5" opacity="0.3"/>
+  <text x="400" y="295" font-family="sans-serif" font-size="13" fill="#E8DAEF" text-anchor="middle" opacity="0.7">扎西会议纪念馆位于云南威信……</text>
+</svg>

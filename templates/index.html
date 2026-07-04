@@ -4,9 +4,33 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>思政教学程序</title>
-<link rel="stylesheet" href="/static/css/style.css">
+<link rel="stylesheet" href="/static/css/style.css?v=202607041820">
 </head>
-<body>
+<body class="auth-pending">
+
+<section class="auth-screen" id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span>思政</span>
+      <strong>教学程序</strong>
+    </div>
+    <h1 id="auth-title">账号登录</h1>
+    <p id="auth-subtitle">登录后进入教学工作台</p>
+    <form id="auth-form" class="auth-form">
+      <label>
+        <span>账号</span>
+        <input id="auth-username" autocomplete="username" placeholder="请输入账号" />
+      </label>
+      <label>
+        <span>密码</span>
+        <input id="auth-password" type="password" autocomplete="current-password" placeholder="请输入密码" />
+      </label>
+      <button class="btn btn-primary auth-submit" id="auth-submit" type="submit">登录</button>
+    </form>
+    <div class="auth-message" id="auth-message"></div>
+    <button class="auth-switch" id="auth-switch" type="button">还没有账号？注册账号</button>
+  </div>
+</section>
 
 <!-- 侧边栏 -->
 <aside class="sidebar" id="sidebar">
@@ -25,10 +49,11 @@
          <li class="has-children expanded">
            <span class="node parent" data-section="knowledge">课内知识</span>
            <ul>
+             <li><span class="node leaf" data-section="smart-import">智能导入</span></li>
+            <li><span class="node leaf" data-section="references">参考书目</span></li>
+             <li><span class="node leaf" data-section="syllabus">教学大纲</span></li>
              <li><span class="node leaf" data-section="textbooks">教材</span></li>
              <li><span class="node leaf" data-section="courseware">课件</span></li>
-             <li><span class="node leaf" data-section="syllabus">教学大纲</span></li>
-             <li><span class="node leaf" data-section="references">参考书目</span></li>
            </ul>
          </li>
          <li class="has-children">
@@ -64,6 +89,7 @@
            <span class="node parent" data-section="exhibition">虚拟展馆</span>
            <ul>
              <li><span class="node leaf" data-section="exhibition-view">展馆参观</span></li>
+             <li><span class="node leaf" data-section="ancestor-dialogue">与先辈对话</span></li>
            </ul>
          </li>
          <li class="has-children">
@@ -89,6 +115,8 @@
    <button class="menu-btn" id="menuBtn" title="展开菜单">&equiv;</button>
    <h2 class="page-title" id="pageTitle">首页</h2>
    <div class="topbar-actions">
+     <span class="badge user-badge" id="currentUserBadge"></span>
+     <button class="btn btn-secondary btn-sm" onclick="logoutAccount()">退出登录</button>
      <span class="badge" id="statusBadge">就绪</span>
    </div>
  </header>
@@ -108,6 +136,60 @@
          <div class="qcard" onclick="navigateTo('studytour-list')">研学规划</div>
          <div class="qcard" onclick="navigateTo('exhibition-view')">虚拟展馆</div>
          <div class="qcard" onclick="navigateTo('scripts-list')">情景剧创作</div>
+       </div>
+       <div class="dashboard-section">
+         <div class="panel-toolbar">
+           <h3>大数据辅助概览</h3>
+           <div class="toolbar-right">
+             <button class="btn" onclick="loadDataAssist(true)">刷新概览</button>
+           </div>
+         </div>
+         <div id="data-assist-overview" class="data-assist-grid"></div>
+       </div>
+     </div>
+   </div>
+
+   <!-- ================ 课内知识：智能导入 ================ -->
+   <div class="panel" id="panel-smart-import">
+     <div class="panel-toolbar">
+       <h3>智能导入</h3>
+     </div>
+     <div class="si-container">
+       <div class="si-upload">
+         <h4>导入教材或教学资料</h4>
+         <p class="si-desc">支持 Word 和 PDF。系统会自动识别内容，并分别归入参考书目、教学大纲、教材、课件。</p>
+         <div class="si-upload-row">
+           <input type="file" id="smart-import-file" accept=".docx,.pdf" />
+           <button class="btn btn-primary" id="smart-import-btn" onclick="smartImportDocument()">开始导入</button>
+         </div>
+         <div class="si-loading hidden" id="smart-import-loading">正在识别并整理内容，请稍候...</div>
+         <div class="si-result" id="smart-import-result">请选择一个 Word 或 PDF 文件后开始导入。</div>
+       </div>
+
+       <div class="si-summary">
+         <div class="si-card">
+           <span class="si-label">参考书目</span>
+           <strong id="si-cnt-references">0</strong>
+         </div>
+         <div class="si-card">
+           <span class="si-label">教学大纲</span>
+           <strong id="si-cnt-syllabus">0</strong>
+         </div>
+         <div class="si-card">
+           <span class="si-label">教材</span>
+           <strong id="si-cnt-textbook">0</strong>
+         </div>
+         <div class="si-card">
+           <span class="si-label">课件</span>
+           <strong id="si-cnt-courseware">0</strong>
+         </div>
+       </div>
+
+       <div class="si-actions">
+         <button class="btn" onclick="navigateTo('references')">查看参考书目</button>
+         <button class="btn" onclick="navigateTo('syllabus')">查看教学大纲</button>
+         <button class="btn" onclick="navigateTo('textbooks')">查看教材</button>
+         <button class="btn" onclick="navigateTo('courseware')">查看课件</button>
        </div>
      </div>
    </div>
@@ -139,14 +221,66 @@
    </div>
 
    <!-- ================ 课内知识：课件 ================ -->
-   <div class="panel" id="panel-courseware">
+
+
+  <!-- ================ 教材阅读器 ================ -->
+  <div class="panel teaching-panel" id="panel-textbook-reader">
+    <div class="panel-toolbar">
+      <div class="reader-toolbar-copy">
+        <div class="reader-kicker" id="reader-kicker">电子教材</div>
+        <h3 id="reader-title">教材阅读</h3>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-sm" id="reader-toc-toggle" onclick="toggleReaderToc()" title="收起或展开目录">收起目录</button>
+        <button class="btn btn-sm" onclick="toggleFullscreen('reader-content')" title="全屏展示">▢</button>
+        <button class="btn" onclick="closeTextbookReader()">< 返回列表</button>
+      </div>
+    </div>
+    <div class="reader-container" id="reader-container">
+      <div class="reader-toc" id="reader-toc">
+        <div class="toc-title-row">
+          <div class="toc-title">目录</div>
+          <div class="reader-progress" id="reader-progress">未开始</div>
+        </div>
+        <ul id="toc-list"></ul>
+      </div>
+      <div class="reader-content" id="reader-content">
+        <div class="reader-book-shell">
+          <div class="reader-book-head">
+            <div class="reader-book-meta">
+              <span class="reader-meta-pill" id="reader-meta-type">教材</span>
+              <span class="reader-meta-pill" id="reader-meta-structure">0 章节</span>
+            </div>
+            <div class="reader-book-title" id="reader-book-title">教材阅读</div>
+            <div class="reader-book-subtitle" id="reader-book-subtitle">选择左侧目录中的章节查看内容</div>
+          </div>
+          <div class="reader-divider"></div>
+          <div class="reader-placeholder">选择左侧目录中的章节查看内容</div>
+        </div>
+      </div>
+    </div>
+  </div>
+<!-- ================ 课内知识：课件 ================ -->
+  <div class="panel" id="panel-courseware">
      <div class="panel-toolbar">
        <h3>课件管理</h3>
        <div class="toolbar-right">
+         <button class="btn" onclick="showCoursewareUploadForm()">导入PPT</button>
          <button class="btn btn-primary" onclick="showCoursewareForm()">+ 添加课件</button>
        </div>
      </div>
      <div id="courseware-list" class="data-list"></div>
+     <div id="courseware-upload-form" class="form-overlay hidden">
+       <div class="form-card">
+         <h4>导入PPT课件</h4>
+         <input type="file" id="cw-upload-file" accept=".ppt,.pptx" />
+         <p class="si-desc">导入后会保存在课件列表中，可直接点开用于教学。</p>
+         <div class="form-actions">
+           <button class="btn" onclick="closeForm('courseware-upload-form')">取消</button>
+           <button class="btn btn-primary" onclick="uploadCoursewareFile()">开始导入</button>
+         </div>
+       </div>
+     </div>
      <div id="courseware-form" class="form-overlay hidden">
        <div class="form-card">
          <h4>添加课件</h4>
@@ -216,9 +350,30 @@
      <div class="panel-toolbar">
        <h3>时政更新</h3>
        <div class="toolbar-right">
+         <button class="btn" onclick="syncPoliticsNews()">同步新华网最新内容</button>
          <button class="btn btn-primary" onclick="showPoliticsForm()">+ 添加时政</button>
        </div>
      </div>
+     <div class="politics-status" id="politics-status">打开页面后将自动同步新华网最新内容。</div>
+     <div class="filter-bar">
+       <select id="politics-filter-origin" onchange="loadPoliticsPanel()">
+         <option value="">全部来源类型</option>
+         <option value="auto">自动同步</option>
+         <option value="manual">手动录入</option>
+       </select>
+       <select id="politics-filter-tag" onchange="loadPoliticsPanel()">
+         <option value="">全部主题</option>
+         <option value="国内时政">国内时政</option>
+         <option value="国际时政">国际时政</option>
+         <option value="实时更新">实时更新</option>
+       </select>
+       <input id="politics-filter-source" list="politics-filter-source-options" placeholder="按来源筛选" oninput="loadPoliticsPanel()" />
+       <datalist id="politics-filter-source-options"></datalist>
+       <input id="politics-filter-keyword" placeholder="搜索标题、摘要、标签" oninput="loadPoliticsPanel()" />
+       <input id="politics-filter-date-from" type="date" onchange="loadPoliticsPanel()" />
+       <input id="politics-filter-date-to" type="date" onchange="loadPoliticsPanel()" />
+     </div>
+     <div id="politics-filter-summary" class="politics-filter-summary"></div>
      <div id="politics-list" class="data-list"></div>
      <div id="politics-form" class="form-overlay hidden">
        <div class="form-card">
@@ -239,48 +394,89 @@
    </div>
 
    <!-- ================ 案例 ================ -->
-   <div class="panel" id="panel-cases-list">
+    <div class="panel" id="panel-cases-list">
      <div class="panel-toolbar">
        <h3>经典案例库</h3>
        <div class="toolbar-right">
-         <button class="btn btn-primary" onclick="showCaseForm()">+ 添加案例</button>
-       </div>
-     </div>
-     <div class="filter-bar">
-       <select id="case-filter-category" onchange="loadCases()">
-         <option value="">全部分类</option>
-         <option value="先进模范">先进模范</option>
-         <option value="改革开放">改革开放</option>
-         <option value="新时代成就">新时代成就</option>
-         <option value="历史事件">历史事件</option>
-         <option value="经济发展">经济发展</option>
-       </select>
-       <select id="case-filter-era" onchange="loadCases()">
-         <option value="">全部时期</option>
-         <option value="近代史">近代史</option>
-         <option value="社会主义建设时期">社会主义建设时期</option>
-         <option value="改革开放时期">改革开放时期</option>
-         <option value="新时代">新时代</option>
-       </select>
-       <input id="case-filter-keyword" placeholder="搜索关键词" oninput="loadCases()" />
-     </div>
-     <div id="case-list" class="data-list"></div>
-     <div id="case-form" class="form-overlay hidden">
-       <div class="form-card">
-         <h4>添加案例</h4>
-         <input id="case-title" placeholder="案例标题" />
-         <input id="case-category" placeholder="分类" />
-         <input id="case-era" placeholder="时期" />
-         <textarea id="case-summary" placeholder="摘要" rows="2"></textarea>
-         <textarea id="case-content" placeholder="详细内容" rows="4"></textarea>
-         <input id="case-tags" placeholder="标签（逗号分隔）" />
-         <input id="case-source" placeholder="来源（选填）" />
-         <div class="form-actions">
-           <button class="btn" onclick="closeForm('case-form')">取消</button>
-           <button class="btn btn-primary" onclick="saveCase()">保存</button>
+          <button class="btn" onclick="syncCasesFromPolitics()">立即同步经典案例</button>
+          <button class="btn btn-primary" onclick="showCaseForm()">+ 添加案例</button>
+        </div>
+      </div>
+      <div class="cases-intro">
+        围绕思政教学常用主题，收录真实、经典、可讨论、可延展的教学案例。
+      </div>
+      <div class="politics-status" id="cases-sync-status">每日自动检查最新时政，优先沉淀红色资源、党史党建、先进人物、国家战略等经典案例。</div>
+      <div class="filter-bar">
+        <select id="case-filter-category" onchange="loadCases()">
+          <option value="">全部分类</option>
+          <option value="先进人物">先进人物</option>
+          <option value="党史事件">党史事件</option>
+          <option value="红色场馆">红色场馆</option>
+          <option value="改革开放">改革开放</option>
+          <option value="脱贫攻坚">脱贫攻坚</option>
+          <option value="科技报国">科技报国</option>
+          <option value="法治教育">法治教育</option>
+          <option value="生态文明">生态文明</option>
+        </select>
+        <select id="case-filter-era" onchange="loadCases()">
+          <option value="">全部时期</option>
+          <option value="新民主主义革命时期">新民主主义革命时期</option>
+          <option value="近代史">近代史</option>
+          <option value="社会主义建设时期">社会主义建设时期</option>
+          <option value="改革开放时期">改革开放时期</option>
+          <option value="新时代">新时代</option>
+        </select>
+        <input id="case-filter-keyword" placeholder="搜索标题、摘要、标签、教学主题" oninput="loadCases()" />
+      </div>
+      <div id="case-list" class="data-list"></div>
+      <div id="case-form" class="form-overlay hidden">
+        <div class="form-card">
+          <h4>添加案例</h4>
+          <input id="case-title" placeholder="案例标题" />
+          <select id="case-category">
+            <option value="先进人物">先进人物</option>
+            <option value="党史事件">党史事件</option>
+            <option value="红色场馆">红色场馆</option>
+            <option value="改革开放">改革开放</option>
+            <option value="脱贫攻坚">脱贫攻坚</option>
+            <option value="科技报国">科技报国</option>
+            <option value="法治教育">法治教育</option>
+            <option value="生态文明">生态文明</option>
+          </select>
+          <select id="case-era">
+            <option value="新民主主义革命时期">新民主主义革命时期</option>
+            <option value="近代史">近代史</option>
+            <option value="社会主义建设时期">社会主义建设时期</option>
+            <option value="改革开放时期">改革开放时期</option>
+            <option value="新时代">新时代</option>
+          </select>
+          <textarea id="case-summary" placeholder="摘要" rows="2"></textarea>
+          <textarea id="case-content" placeholder="详细内容" rows="5"></textarea>
+          <textarea id="case-teaching-value" placeholder="思政育人价值" rows="3"></textarea>
+          <textarea id="case-recommended-usage" placeholder="课堂使用建议" rows="2"></textarea>
+          <input id="case-topics" placeholder="教学主题（逗号分隔）" />
+          <input id="case-questions" placeholder="讨论问题（逗号分隔）" />
+          <input id="case-tags" placeholder="标签（逗号分隔）" />
+          <input id="case-source" placeholder="事实来源/出处" />
+          <div class="form-actions">
+            <button class="btn" onclick="closeForm('case-form')">取消</button>
+            <button class="btn btn-primary" onclick="saveCase()">保存</button>
          </div>
        </div>
      </div>
+      <div id="case-detail-modal" class="form-overlay case-detail-overlay hidden" onclick="handleCaseDetailBackdrop(event)">
+        <div class="form-card case-detail-card">
+          <div class="case-detail-head">
+            <div>
+              <div class="case-detail-eyebrow">教学卡片</div>
+              <h4 id="case-detail-title">案例详情</h4>
+              <div id="case-detail-meta" class="case-detail-meta"></div>
+            </div>
+            <button class="case-detail-close" type="button" onclick="closeCaseDetail()" aria-label="关闭案例详情">&times;</button>
+          </div>
+          <div id="case-detail-body" class="case-detail-body"></div>
+        </div>
+      </div>
    </div>
 
    <!-- ================ 关键词条 ================ -->
@@ -288,15 +484,20 @@
      <div class="panel-toolbar">
        <h3>关键词条解释</h3>
        <div class="toolbar-right">
-         <button class="btn btn-primary" onclick="showKeyTermForm()">+ 添加词条</button>
-       </div>
-     </div>
-     <div id="keyterm-list" class="data-list term-cards"></div>
+          <button class="btn" onclick="syncKeyTermsFromPolitics()">立即同步思政关键词条</button>
+          <button class="btn btn-primary" onclick="showKeyTermForm()">+ 添加词条</button>
+        </div>
+      </div>
+      <div class="politics-status" id="keyterms-sync-status">每周自动检查最新时政、经典教材与权威文献，补充适合课堂使用的正向思政关键词条。</div>
+      <div id="keyterm-list" class="data-list term-cards"></div>
      <div id="keyterm-form" class="form-overlay hidden">
        <div class="form-card">
          <h4>添加关键词条</h4>
          <input id="kt-term" placeholder="关键词" />
+         <input id="kt-book" placeholder="对应教材/书籍/文献（如：《习概》《毛概》或现当代经典文献）" />
+         <input id="kt-proposer" placeholder="提出者" />
          <input id="kt-time" placeholder="提出时间" />
+         <input id="kt-context" placeholder="提出场合/地点" />
          <textarea id="kt-meaning" placeholder="内涵/含义" rows="2"></textarea>
          <textarea id="kt-significance" placeholder="意义" rows="2"></textarea>
          <input id="kt-source" placeholder="来源刊文/讲话" />
@@ -315,6 +516,7 @@
      <div class="panel-toolbar">
        <h3>研学规划与方案</h3>
        <div class="toolbar-right">
+         <button class="btn btn-primary" onclick="showStudyTourForm()">+ 手动添加</button>
          <button class="btn btn-secondary" onclick="showAIGenerateTour()">AI 生成方案</button>
        </div>
      </div>
@@ -332,6 +534,30 @@
          <div class="form-actions">
            <button class="btn" onclick="closeForm('studytour-ai-form')">取消</button>
            <button class="btn btn-primary" onclick="generateStudyTour()">生成并保存</button>
+         </div>
+       </div>
+     </div>
+     <div id="studytour-form" class="form-overlay hidden">
+       <div class="form-card" style="max-width:620px">
+         <h4>手动添加方案</h4>
+         <input id="st-title" placeholder="方案标题" />
+         <div class="form-row"><input id="st-dest" placeholder="目的地" style="flex:1" /><input id="st-duration" placeholder="时长（如：3天）" style="flex:0.5" /></div>
+         <input id="st-theme" placeholder="主题（红色/传统文化/改革开放等）" />
+         <input id="st-target-grade" placeholder="适用年级（选填）" />
+         <input id="st-related-courses" placeholder="关联课程（逗号分隔，选填）" />
+         <textarea id="st-objectives" placeholder="教学目标（必填）" rows="2"></textarea>
+         <textarea id="st-itinerary" placeholder="详细行程（必填，按天排列）" rows="3"></textarea>
+         <input id="st-budget" placeholder="预算说明（选填）" />
+         <textarea id="st-tasks" placeholder="研学任务（选填）" rows="2"></textarea>
+         <textarea id="st-preparation" placeholder="行前准备（选填）" rows="2"></textarea>
+         <textarea id="st-evaluation" placeholder="评价方式（选填）" rows="2"></textarea>
+         <textarea id="st-expected-outcomes" placeholder="预期成果（选填）" rows="2"></textarea>
+         <textarea id="st-safety" placeholder="安全预案（选填）" rows="2"></textarea>
+         <textarea id="st-resources" placeholder="推荐资源（选填）" rows="2"></textarea>
+         <textarea id="st-notes" placeholder="备注（选填）" rows="1"></textarea>
+         <div class="form-actions">
+           <button class="btn" onclick="closeForm('studytour-form')">取消</button>
+           <button class="btn btn-primary" onclick="saveStudyTour()">保存</button>
          </div>
        </div>
      </div>
@@ -353,14 +579,75 @@
      </div>
    </div>
 
+   <div class="panel" id="panel-ancestor-dialogue">
+     <div class="panel-toolbar">
+       <h3>与先辈对话</h3>
+       <div class="toolbar-right">
+         <span class="badge badge-info">红色对话</span>
+       </div>
+     </div>
+     <div class="ancestor-dialogue-shell">
+       <div class="ancestor-list-panel">
+         <div class="ancestor-list-head">
+           <h4>选择对话对象</h4>
+           <input id="ancestor-search" placeholder="搜索毛泽东、邓小平、周恩来" oninput="renderAncestorList()" />
+         </div>
+         <div id="ancestor-list" class="ancestor-list"></div>
+       </div>
+       <div class="ancestor-chat-panel" id="ancestor-chat-panel">
+         <div class="ancestor-chat-empty">
+           <strong>请选择一位伟人</strong>
+           <span>选择人物后，输入你想聊的问题，对方会根据你的提问作答。</span>
+         </div>
+       </div>
+     </div>
+   </div>
+
    <!-- ================ 情景剧/演讲稿 ================ -->
    <div class="panel" id="panel-scripts-list">
      <div class="panel-toolbar">
-       <h3>情景剧与演讲稿</h3>
+       <h3>创作助手</h3>
        <div class="toolbar-right">
-         <button class="btn btn-secondary" onclick="showAIScriptForm()">AI 生成</button>
+         <button class="btn btn-secondary" onclick="showAIScriptForm()">主题生成</button>
          <button class="btn btn-primary" onclick="showScriptForm()">+ 手动添加</button>
        </div>
+     </div>
+     <div class="script-create-panel">
+       <div class="script-create-field">
+         <label>作品类型</label>
+         <select id="sc-quick-type">
+           <option value="演讲稿">演讲稿</option>
+           <option value="情景剧">情景剧</option>
+         </select>
+       </div>
+       <div class="script-create-field script-create-main">
+         <label>主题</label>
+         <input id="sc-quick-theme" placeholder="如：爱国主义、法治精神、红色传承、青春奋斗" />
+       </div>
+       <div class="script-create-field">
+         <label>课堂用途</label>
+         <select id="sc-quick-usage">
+           <option value="课堂导入">课堂导入</option>
+           <option value="主题班会">主题班会</option>
+           <option value="课程汇报">课程汇报</option>
+           <option value="社团展演">社团展演</option>
+           <option value="比赛展示">比赛展示</option>
+         </select>
+       </div>
+       <button class="btn btn-primary" onclick="generateQuickScript()">生成作品</button>
+     </div>
+     <div class="filter-bar">
+       <select id="script-filter-type" onchange="loadScripts()">
+         <option value="">全部类型</option>
+         <option value="演讲稿">演讲稿</option>
+         <option value="情景剧">情景剧</option>
+       </select>
+       <select id="script-filter-source" onchange="loadScripts()">
+         <option value="">全部来源</option>
+         <option value="ai">主题生成</option>
+         <option value="manual">手动添加</option>
+       </select>
+       <input id="script-filter-keyword" placeholder="搜索标题、主题、正文" oninput="loadScripts()" />
      </div>
      <div id="script-list" class="data-list"></div>
      <div id="script-form" class="form-overlay hidden">
@@ -372,6 +659,10 @@
            <option value="演讲稿">演讲稿</option>
          </select>
          <input id="sc-theme" placeholder="主题" />
+         <input id="sc-usage" placeholder="课堂用途（选填）" />
+         <input id="sc-audience" placeholder="适用对象（选填）" />
+         <input id="sc-duration" placeholder="时长（选填）" />
+         <input id="sc-style" placeholder="风格（选填）" />
          <input id="sc-characters" placeholder="角色（情景剧，选填）" />
          <textarea id="sc-content" placeholder="内容" rows="8"></textarea>
          <input id="sc-notes" placeholder="备注（选填）" />
@@ -389,10 +680,54 @@
            <option value="情景剧">情景剧</option>
          </select>
          <input id="sc-ai-theme" placeholder="主题（如：中国梦、爱国主义、红色传承）" />
+         <select id="sc-ai-usage">
+           <option value="课堂导入">课堂导入</option>
+           <option value="主题班会">主题班会</option>
+           <option value="课程汇报">课程汇报</option>
+           <option value="社团展演">社团展演</option>
+           <option value="比赛展示">比赛展示</option>
+         </select>
+         <select id="sc-ai-audience">
+           <option value="大学生">大学生</option>
+           <option value="高职学生">高职学生</option>
+           <option value="中学生">中学生</option>
+           <option value="入党积极分子">入党积极分子</option>
+           <option value="班团干部">班团干部</option>
+         </select>
+         <select id="sc-ai-duration">
+           <option value="5分钟">5分钟</option>
+           <option value="3分钟">3分钟</option>
+           <option value="8分钟">8分钟</option>
+           <option value="10分钟">10分钟</option>
+         </select>
+         <select id="sc-ai-style">
+           <option value="青春励志">青春励志</option>
+           <option value="庄重有力">庄重有力</option>
+           <option value="课堂叙事">课堂叙事</option>
+           <option value="沉浸对话">沉浸对话</option>
+         </select>
          <input id="sc-ai-characters" placeholder="角色设定（情景剧，选填）" />
+         <input id="sc-ai-keywords" placeholder="关键词（选填，逗号分隔）" />
          <div class="form-actions">
            <button class="btn" onclick="closeForm('script-ai-form')">取消</button>
            <button class="btn btn-primary" onclick="generateScript()">生成并保存</button>
+         </div>
+       </div>
+     </div>
+     <div id="script-detail-modal" class="form-overlay hidden" onclick="handleScriptDetailBackdrop(event)">
+       <div class="form-card script-detail-card">
+         <div class="script-detail-head">
+           <div>
+             <div class="script-detail-eyebrow" id="script-detail-type">创作助手</div>
+             <h4 id="script-detail-title">作品详情</h4>
+             <div id="script-detail-meta" class="script-detail-meta"></div>
+           </div>
+           <button class="case-detail-close" type="button" onclick="closeScriptDetail()" aria-label="关闭作品详情">&times;</button>
+         </div>
+         <div id="script-detail-content" class="script-detail-content"></div>
+         <div class="form-actions">
+           <button class="btn" onclick="copyCurrentScript()">复制全文</button>
+           <button class="btn btn-primary" onclick="closeScriptDetail()">完成</button>
          </div>
        </div>
      </div>
@@ -446,7 +781,10 @@
  </div>
 </main>
 
-<script src="/static/js/toast.js"></script>
-<script src="/static/js/app.js"></script>
+<script src="/static/js/toast.js?v=202607041820"></script>
+<script src="/static/js/app-core.js?v=202607041820"></script>
+<script src="/static/js/app-knowledge.js?v=202607041820"></script>
+<script src="/static/js/app-policy.js?v=202607041820"></script>
+<script src="/static/js/app.js?v=202607041820"></script>
 </body>
 </html>

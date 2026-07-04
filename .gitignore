@@ -1,6 +1,8 @@
 __pycache__/
+.env
+data/users.json
+uploads/
 *.pyc
 *.pyo
 .DS_Store
 Thumbs.db
-*.pyc

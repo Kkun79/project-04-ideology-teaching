@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="350" viewBox="0 0 800 350">
+  <defs>
+    <linearGradient id="bg_ex058" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1A5276;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0E2F44;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="ov_ex058" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgba(0,0,0,0.2);stop-opacity:1" />
+      <stop offset="100%" style="stop-color:rgba(0,0,0,0.55);stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="350" fill="url(#bg_ex058)"/>
+  <rect width="800" height="350" fill="url(#ov_ex058)"/>
+    <circle cx="400" cy="180" r="40" fill="none" stroke="#85C1E9" stroke-width="2" opacity="0.35"/>
+  <circle cx="400" cy="180" r="70" fill="none" stroke="#85C1E9" stroke-width="1.2" opacity="0.15"/>
+  <circle cx="400" cy="180" r="100" fill="none" stroke="#85C1E9" stroke-width="1.2" opacity="0.15"/>
+  <polygon points="300,250 340,140 380,220 420,120 460,200 500,250" fill="#85C1E9" opacity="0.15"/>
+  <polygon points="320,250 360,170 400,230 440,160 480,250" fill="#85C1E9" opacity="0.08"/>
+  <line x1="40" y1="40" x2="100" y2="40" stroke="#85C1E9" stroke-width="1" opacity="0.3"/>
+  <line x1="40" y1="40" x2="40" y2="100" stroke="#85C1E9" stroke-width="1" opacity="0.3"/>
+  <line x1="700" y1="300" x2="760" y2="300" stroke="#85C1E9" stroke-width="1" opacity="0.3"/>
+  <line x1="760" y1="300" x2="760" y2="240" stroke="#85C1E9" stroke-width="1" opacity="0.3"/>
+  <text x="400" y="155" font-family="serif" font-size="32" fill="#85C1E9" text-anchor="middle" font-weight="bold">辽宁——沈阳抗美援朝烈士陵园</text>
+  <rect x="310" y="210" width="180" height="24" rx="12" fill="rgba(255,255,255,0.08)" stroke="#85C1E9" stroke-width="0.5"/>
+  <text x="400" y="226" font-family="sans-serif" font-size="12" fill="#85C1E9" text-anchor="middle" opacity="0.85">&#9679; 东北地区  |  1950-1953年</text>
+  <line x1="300" y1="255" x2="500" y2="255" stroke="#85C1E9" stroke-width="0.5" opacity="0.3"/>
+  <text x="400" y="295" font-family="sans-serif" font-size="13" fill="#AED6F1" text-anchor="middle" opacity="0.7">抗美援朝烈士陵园位于辽宁省沈阳市北陵公园东侧，安葬着特级战斗……</text>
+</svg>
