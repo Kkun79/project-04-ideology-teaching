@@ -9,6 +9,7 @@ from web.routes import register_routes
 
 ROOT = Path(__file__).parent
 UPLOAD_ROOT = ROOT / "uploads"
+UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="思政教学程序", version="1.0.0")
 app.mount("/static", StaticFiles(directory=str(ROOT / "static")), name="static")
