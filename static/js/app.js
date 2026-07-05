@@ -257,6 +257,9 @@ function renderAdminUserItem(user) {
  const passwordButton = isDeleted
    ? ""
    : '<button class="btn btn-secondary btn-sm" onclick="openAdminPasswordForm(\'' + jsArg(user.id) + '\',\'' + jsArg(user.username) + '\')">重置密码</button>';
+ const deleteButton = (isAdmin || isDeleted)
+   ? ""
+   : '<button class="btn btn-danger btn-sm" onclick="cancelAdminUserAccount(\'' + jsArg(user.id) + '\',\'' + jsArg(user.username) + '\')">注销账号</button>';
  return '<div class="data-item">' +
    '<div class="data-item-header">' +
      '<div class="admin-user-header">' +
@@ -267,6 +270,7 @@ function renderAdminUserItem(user) {
       '<div class="data-item-actions admin-user-actions">' +
         passwordButton +
         statusButton +
+        deleteButton +
       '</div>' +
    '</div>' +
    '<div class="data-item-body">' +
@@ -348,6 +352,14 @@ async function toggleAdminUserStatus(userId, nextStatus, username) {
    status: nextStatus
  });
  if (typeof showSuccess === "function") showSuccess("账号状态已更新");
+ loadAdminUsers();
+}
+
+async function cancelAdminUserAccount(userId, username) {
+ const name = username || "";
+ if (!confirm("确定要注销账号“" + name + "”吗？注销后该账号将不能再登录，也不能再恢复为正常状态。")) return;
+ await api("/api/admin/users/" + encodeURIComponent(userId) + "/delete-account", "POST", {});
+ if (typeof showSuccess === "function") showSuccess("账号已注销");
  loadAdminUsers();
 }
 
@@ -1062,6 +1074,7 @@ window.openAdminPasswordForm = openAdminPasswordForm;
 window.closeAdminPasswordForm = closeAdminPasswordForm;
 window.submitAdminPasswordReset = submitAdminPasswordReset;
 window.toggleAdminUserStatus = toggleAdminUserStatus;
+window.cancelAdminUserAccount = cancelAdminUserAccount;
 window.smartImportDocument = smartImportDocument;
 window.showCoursewareForm = showCoursewareForm;
 window.saveCourseware = saveCourseware;

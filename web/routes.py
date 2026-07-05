@@ -159,6 +159,17 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
+    @app.post("/api/admin/users/{user_id}/delete-account")
+    async def admin_delete_account(user_id: str, request: Request):
+        _require_admin_user(request)
+        try:
+            user = auth_service.admin_cancel_user_account(user_id)
+            return {"ok": True, "user": user}
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
     @app.post("/api/admin/users/{user_id}/status")
     async def admin_update_status(user_id: str, data: dict, request: Request):
         current_user = _require_admin_user(request)

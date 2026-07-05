@@ -32,6 +32,7 @@ MSG_STATUS_INVALID = "\u8d26\u53f7\u72b6\u6001\u53ea\u80fd\u8bbe\u4e3a active \u
 MSG_DELETE_CONFIRM = "\u8bf7\u8f93\u5165\u201c\u6ce8\u9500\u8d26\u53f7\u201d\u786e\u8ba4\u64cd\u4f5c"
 MSG_DELETE_ADMIN_PROTECT = "\u7ba1\u7406\u5458\u8d26\u53f7\u4e0d\u80fd\u5728\u8fd9\u91cc\u6ce8\u9500\uff0c\u8bf7\u5148\u8bbe\u7f6e\u65b0\u7ba1\u7406\u5458\u540e\u518d\u5904\u7406"
 MSG_DELETED_ACCOUNT = "\u8be5\u8d26\u53f7\u5df2\u6ce8\u9500\uff0c\u4e0d\u80fd\u7ee7\u7eed\u64cd\u4f5c"
+MSG_USER_NOT_FOUND = "\u7528\u6237\u4e0d\u5b58\u5728"
 
 
 def _now() -> datetime:
@@ -612,6 +613,59 @@ def cancel_user_account(user_id: str, password: str, confirmation: str) -> dict:
     return _public_user(target)
 
 
+def admin_cancel_user_account(user_id: str) -> dict:
+    clean_user_id = str(user_id or "").strip()
+    if not clean_user_id:
+        raise ValueError(MSG_USER_NOT_FOUND)
+
+    if _db_enabled():
+        _ensure_database()
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, username, password_hash, salt, status, created_at, last_login_at
+                    FROM users
+                    WHERE id = %s
+                    FOR UPDATE
+                    """,
+                    (clean_user_id,),
+                )
+                row = cur.fetchone()
+                target = _row_to_user(row)
+                if not target:
+                    raise ValueError(MSG_USER_NOT_FOUND)
+                if target.get("status") == "deleted":
+                    raise ValueError(MSG_DELETED_ACCOUNT)
+                if is_admin_user(target):
+                    raise ValueError(MSG_DELETE_ADMIN_PROTECT)
+                cur.execute("UPDATE users SET status = 'deleted' WHERE id = %s", (clean_user_id,))
+                cur.execute("DELETE FROM sessions WHERE user_id = %s", (clean_user_id,))
+            conn.commit()
+        saved_user = _db_find_user_by_id(clean_user_id)
+        if saved_user:
+            _write_audit("admin_delete_account", clean_user_id, {"username": saved_user.get("username", "")})
+            return _public_user(saved_user)
+        raise ValueError(MSG_USER_NOT_FOUND)
+
+    users = _read_users()
+    target = None
+    for item in users:
+        if str(item.get("id", "")).strip() == clean_user_id:
+            if item.get("status") == "deleted":
+                raise ValueError(MSG_DELETED_ACCOUNT)
+            if is_admin_user(item):
+                raise ValueError(MSG_DELETE_ADMIN_PROTECT)
+            item["status"] = "deleted"
+            target = item
+            break
+    if not target:
+        raise ValueError(MSG_USER_NOT_FOUND)
+    _write_local_users(users)
+    _revoke_local_user_sessions(clean_user_id)
+    return _public_user(target)
+
+
 def create_session(user: dict) -> dict:
     token = secrets.token_urlsafe(32)
     if _db_enabled():
@@ -784,6 +838,8 @@ def admin_reset_user_password(user_id: str, new_password: str) -> dict:
     target = None
     for item in users:
         if str(item.get("id", "")).strip() == clean_user_id:
+            if item.get("status") == "deleted":
+                raise ValueError(MSG_DELETED_ACCOUNT)
             salt = secrets.token_hex(16)
             item["salt"] = salt
             item["password_hash"] = _password_hash(clean_password, salt)
