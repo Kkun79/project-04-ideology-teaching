@@ -30,29 +30,37 @@ def _require_admin_user(request: Request) -> dict:
     return user
 
 
+def _request_data_scope(request: Request) -> tuple[str, bool]:
+    user = _current_user_from_request(request)
+    return str(user.get("id", "")), auth_service.is_admin_user(user)
+
+
 def _crud_router(prefix, name, get_fn, add_fn, update_fn, delete_fn):
     router = APIRouter(prefix="/api/" + prefix, tags=[name])
 
     @router.get("")
-    async def list_items():
+    async def list_items(request: Request):
+        owner_id, _ = _request_data_scope(request)
         try:
-            return get_fn()
+            return get_fn(owner_id)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @router.post("")
-    async def create_item(item: dict):
+    async def create_item(item: dict, request: Request):
+        owner_id, _ = _request_data_scope(request)
         try:
-            return add_fn(item)
+            return add_fn(item, owner_id)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @router.put("/{item_id}")
-    async def update_item(item_id: str, item: dict):
+    async def update_item(item_id: str, item: dict, request: Request):
+        owner_id, is_admin = _request_data_scope(request)
         try:
-            result = update_fn(item_id, item)
+            result = update_fn(item_id, item, owner_id, is_admin)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         if not result:
@@ -60,10 +68,15 @@ def _crud_router(prefix, name, get_fn, add_fn, update_fn, delete_fn):
         return result
 
     @router.delete("/{item_id}")
-    async def remove_item(item_id: str):
+    async def remove_item(item_id: str, request: Request):
+        owner_id, is_admin = _request_data_scope(request)
         try:
-            delete_fn(item_id)
+            deleted = delete_fn(item_id, owner_id, is_admin)
+            if not deleted:
+                raise HTTPException(status_code=404, detail="Not found")
             return {"ok": True}
+        except HTTPException:
+            raise
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -184,13 +197,14 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.post("/api/upload")
-    async def upload_file(data: dict):
+    async def upload_file(data: dict, request: Request):
+        owner_id, _ = _request_data_scope(request)
         try:
             filename = data.get("filename", "unnamed.bin")
             content = decode_base64_payload(data.get("content", ""))
-            dest, safe_name = resolve_upload_path(upload_root, filename, "upload.bin")
+            dest, safe_name = resolve_upload_path(upload_root / owner_id, filename, "upload.bin")
             dest.write_bytes(content)
-            return {"file_path": f"/uploads/{safe_name}", "file_name": safe_name}
+            return {"file_path": f"/uploads/{owner_id}/{safe_name}", "file_name": safe_name}
         except HTTPException:
             raise
         except Exception as exc:
@@ -209,25 +223,28 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
         app.include_router(_crud_router(prefix, prefix, get_fn, add_fn, update_fn, delete_fn))
 
     @app.get("/api/scripts")
-    async def list_scripts(type: str = "", keyword: str = "", source: str = ""):
+    async def list_scripts(request: Request, type: str = "", keyword: str = "", source: str = ""):
+        owner_id, _ = _request_data_scope(request)
         try:
-            return dm.get_scripts(type, keyword, source)
+            return dm.get_scripts(type, keyword, source, owner_id)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.post("/api/scripts")
-    async def create_script(item: dict):
+    async def create_script(item: dict, request: Request):
+        owner_id, _ = _request_data_scope(request)
         try:
-            return dm.add_script(item)
+            return dm.add_script(item, owner_id)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.put("/api/scripts/{item_id}")
-    async def update_script(item_id: str, item: dict):
+    async def update_script(item_id: str, item: dict, request: Request):
+        owner_id, is_admin = _request_data_scope(request)
         try:
-            result = dm.update_script(item_id, item)
+            result = dm.update_script(item_id, item, owner_id, is_admin)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         if not result:
@@ -235,33 +252,41 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
         return result
 
     @app.delete("/api/scripts/{item_id}")
-    async def remove_script(item_id: str):
+    async def remove_script(item_id: str, request: Request):
+        owner_id, is_admin = _request_data_scope(request)
         try:
-            dm.delete_script(item_id)
+            deleted = dm.delete_script(item_id, owner_id, is_admin)
+            if not deleted:
+                raise HTTPException(status_code=404, detail="Not found")
             return {"ok": True}
+        except HTTPException:
+            raise
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.get("/api/cases")
-    async def list_cases(category: str = "", era: str = "", keyword: str = ""):
+    async def list_cases(request: Request, category: str = "", era: str = "", keyword: str = ""):
+        owner_id, _ = _request_data_scope(request)
         try:
-            return dm.get_cases(category, era, keyword)
+            return dm.get_cases(category, era, keyword, owner_id)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.post("/api/cases")
-    async def create_case(item: dict):
+    async def create_case(item: dict, request: Request):
+        owner_id, _ = _request_data_scope(request)
         try:
-            return dm.add_case(item)
+            return dm.add_case(item, owner_id)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.put("/api/cases/{item_id}")
-    async def update_case(item_id: str, item: dict):
+    async def update_case(item_id: str, item: dict, request: Request):
+        owner_id, is_admin = _request_data_scope(request)
         try:
-            result = dm.update_case(item_id, item)
+            result = dm.update_case(item_id, item, owner_id, is_admin)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         if not result:
@@ -269,15 +294,21 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
         return result
 
     @app.delete("/api/cases/{item_id}")
-    async def remove_case(item_id: str):
+    async def remove_case(item_id: str, request: Request):
+        owner_id, is_admin = _request_data_scope(request)
         try:
-            dm.delete_case(item_id)
+            deleted = dm.delete_case(item_id, owner_id, is_admin)
+            if not deleted:
+                raise HTTPException(status_code=404, detail="Not found")
             return {"ok": True}
+        except HTTPException:
+            raise
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.get("/api/current-politics")
     async def list_current_politics(
+        request: Request,
         auto_refresh: int = 0,
         keyword: str = "",
         origin: str = "",
@@ -286,25 +317,28 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
         date_from: str = "",
         date_to: str = "",
     ):
+        owner_id, _ = _request_data_scope(request)
         del auto_refresh
         try:
-            return dm.get_current_politics(keyword, origin, tag, source, date_from, date_to)
+            return dm.get_current_politics(keyword, origin, tag, source, date_from, date_to, owner_id)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.post("/api/current-politics")
-    async def create_current_politics(item: dict):
+    async def create_current_politics(item: dict, request: Request):
+        owner_id, _ = _request_data_scope(request)
         try:
-            return dm.add_current_politics(item)
+            return dm.add_current_politics(item, owner_id)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.put("/api/current-politics/{item_id}")
-    async def update_current_politics(item_id: str, item: dict):
+    async def update_current_politics(item_id: str, item: dict, request: Request):
+        owner_id, is_admin = _request_data_scope(request)
         try:
-            result = dm.update_current_politics(item_id, item)
+            result = dm.update_current_politics(item_id, item, owner_id, is_admin)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         if not result:
@@ -312,15 +346,21 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
         return result
 
     @app.delete("/api/current-politics/{item_id}")
-    async def remove_current_politics(item_id: str):
+    async def remove_current_politics(item_id: str, request: Request):
+        owner_id, is_admin = _request_data_scope(request)
         try:
-            dm.delete_current_politics(item_id)
+            deleted = dm.delete_current_politics(item_id, owner_id, is_admin)
+            if not deleted:
+                raise HTTPException(status_code=404, detail="Not found")
             return {"ok": True}
+        except HTTPException:
+            raise
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.post("/api/current-politics-sync")
-    async def sync_current_politics():
+    async def sync_current_politics(request: Request):
+        _require_admin_user(request)
         try:
             result = news_service.refresh_current_politics(force=True)
             status = 200 if result.get("ok") else 503
@@ -329,14 +369,16 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.get("/api/current-politics-facets")
-    async def current_politics_facets():
+    async def current_politics_facets(request: Request):
+        owner_id, _ = _request_data_scope(request)
         try:
-            return dm.get_current_politics_facets()
+            return dm.get_current_politics_facets(owner_id)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.post("/api/cases-sync")
-    async def sync_cases():
+    async def sync_cases(request: Request):
+        _require_admin_user(request)
         try:
             return JSONResponse(teaching_sync.sync_cases_from_current_politics(force=True), status_code=200)
         except ValueError as exc:
@@ -345,7 +387,8 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.post("/api/cases-sync/auto")
-    async def auto_sync_cases():
+    async def auto_sync_cases(request: Request):
+        _require_admin_user(request)
         try:
             return JSONResponse(teaching_sync.auto_sync_cases_if_due(), status_code=200)
         except ValueError as exc:
@@ -354,7 +397,8 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.post("/api/key-terms-sync")
-    async def sync_key_terms():
+    async def sync_key_terms(request: Request):
+        _require_admin_user(request)
         try:
             return JSONResponse(teaching_sync.sync_key_terms_from_current_politics(force=True), status_code=200)
         except ValueError as exc:
@@ -363,7 +407,8 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.post("/api/key-terms-sync/auto")
-    async def auto_sync_key_terms():
+    async def auto_sync_key_terms(request: Request):
+        _require_admin_user(request)
         try:
             return JSONResponse(teaching_sync.auto_sync_key_terms_if_due(), status_code=200)
         except ValueError as exc:
@@ -379,25 +424,30 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.get("/api/textbooks/{book_id}/content")
-    async def textbook_content(book_id: str):
+    async def textbook_content(book_id: str, request: Request):
+        owner_id, is_admin = _request_data_scope(request)
+        if not dm.can_access_textbook(book_id, owner_id, is_admin):
+            raise HTTPException(status_code=404, detail="Not found")
         content = get_parsed_content(book_id)
         if content is None:
             raise HTTPException(status_code=404, detail="Not found")
         return content
 
     @app.post("/api/study-tours/generate")
-    async def generate_tour(data: dict):
+    async def generate_tour(data: dict, request: Request):
+        owner_id, _ = _request_data_scope(request)
         destination = require_meaningful_text(data.get("destination", ""), "研学目的地")
         duration = dm._clean_text(data.get("duration", "")) or "3天"
         theme = require_meaningful_text(data.get("theme", ""), "研学主题")
         plan = ai.generate_study_plan(destination, duration, theme)
         try:
-            return dm.add_study_tour(plan)
+            return dm.add_study_tour(plan, owner_id)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.post("/api/scripts/generate")
-    async def generate_script(data: dict):
+    async def generate_script(data: dict, request: Request):
+        owner_id, _ = _request_data_scope(request)
         script_type = dm._clean_text(data.get("type", "")) or "演讲稿"
         theme = require_meaningful_text(data.get("theme", ""), "脚本主题")
         characters = dm._clean_text(data.get("characters", ""))
@@ -412,7 +462,7 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
             keywords=dm._clean_text(data.get("keywords", "")),
         )
         try:
-            return dm.add_script(script)
+            return dm.add_script(script, owner_id)
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -443,15 +493,17 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.get("/api/data-assist")
-    async def get_data_assist():
+    async def get_data_assist(request: Request):
+        owner_id, _ = _request_data_scope(request)
         try:
-            return dm.get_data_assist_snapshot()
+            return dm.get_data_assist_snapshot(owner_id)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.get("/api/exhibits/hierarchy")
-    async def get_hierarchy():
-        all_items = dm.get_exhibits()
+    async def get_hierarchy(request: Request):
+        owner_id, _ = _request_data_scope(request)
+        all_items = dm.get_exhibits(owner_id)
         provinces = [item for item in all_items if item.get("type") == "province"]
         sites = [item for item in all_items if item.get("type") == "site"]
         result = []
@@ -462,12 +514,13 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
         return result
 
     @app.post("/api/smart-import")
-    async def smart_import_endpoint(data: dict):
+    async def smart_import_endpoint(data: dict, request: Request):
+        owner_id, _ = _request_data_scope(request)
         tmp_path = None
         try:
             filename = data.get("filename", "unnamed.docx")
             content = decode_base64_payload(data.get("content", ""))
-            tmp_dir = upload_root / "smart_import"
+            tmp_dir = upload_root / "smart_import" / owner_id
             tmp_path, _ = resolve_upload_path(tmp_dir, filename, "smart_import.docx")
             tmp_path.write_bytes(content)
 
@@ -476,7 +529,7 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
             if not result.get("ok"):
                 return result
 
-            summary = save_categorized(result["categorized"], result["title"], result["book_id"])
+            summary = save_categorized(result["categorized"], result["title"], result["book_id"], owner_id)
             final_book_id = summary.get("items", {}).get("textbook", result["book_id"])
             return {
                 "ok": True,
@@ -492,14 +545,15 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
                 tmp_path.unlink(missing_ok=True)
 
     @app.post("/api/courseware/upload")
-    async def upload_courseware(data: dict):
+    async def upload_courseware(data: dict, request: Request):
+        owner_id, is_admin = _request_data_scope(request)
         try:
             filename = data.get("filename", "courseware.pptx")
             if not filename.lower().endswith((".ppt", ".pptx")):
                 raise HTTPException(status_code=400, detail="Only .ppt or .pptx is supported")
 
             content = decode_base64_payload(data.get("content", ""))
-            upload_dir = upload_root / "courseware"
+            upload_dir = upload_root / "courseware" / owner_id
             dest, safe_name = resolve_upload_path(
                 upload_dir,
                 filename,
@@ -513,17 +567,17 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
                 "title": stem,
                 "chapter": "PPT课件",
                 "description": "已导入课件文件",
-                "file_path": f"/uploads/courseware/{safe_name}",
+                "file_path": f"/uploads/courseware/{owner_id}/{safe_name}",
                 "file_name": safe_name,
                 "file_type": Path(safe_name).suffix.lower(),
             }
-            existing = dm.find_courseware_by_file_name(safe_name) or dm.find_courseware_by_title(stem)
+            existing = dm.find_courseware_by_file_name(safe_name, owner_id) or dm.find_courseware_by_title(stem, owner_id)
             action = "created"
             if existing:
-                item = dm.update_courseware(existing["id"], payload)
+                item = dm.update_courseware(existing["id"], payload, owner_id, is_admin)
                 action = "replaced"
             else:
-                item = dm.add_courseware(payload)
+                item = dm.add_courseware(payload, owner_id)
             return {"ok": True, "item": item, "action": action}
         except HTTPException:
             raise

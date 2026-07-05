@@ -374,7 +374,7 @@ def _categorize_layout(layout):
     return categorized
 
 
-def _save_reference_resource(result, categorized, title):
+def _save_reference_resource(result, categorized, title, owner_id=""):
     references_text = categorized.get("references_text", "")
     if not references_text:
         return
@@ -387,13 +387,13 @@ def _save_reference_resource(result, categorized, title):
         "description": references_text[:500],
         "file_path": "",
     }
-    existing_reference = dm.find_reference_by_title(reference_title)
-    item = dm.update_reference(existing_reference["id"], reference_payload) if existing_reference else dm.add_reference(reference_payload)
+    existing_reference = dm.find_reference_by_title(reference_title, owner_id)
+    item = dm.update_reference(existing_reference["id"], reference_payload, owner_id) if existing_reference else dm.add_reference(reference_payload, owner_id)
     result["references"] = 1
     result["items"]["references"] = item.get("id")
 
 
-def _save_syllabus_resource(result, categorized, title):
+def _save_syllabus_resource(result, categorized, title, owner_id=""):
     syllabus_text = categorized.get("syllabus_text", "")
     if not syllabus_text:
         return
@@ -404,13 +404,13 @@ def _save_syllabus_resource(result, categorized, title):
         "total_hours": 48,
         "content": syllabus_text,
     }
-    existing_syllabus = dm.find_syllabus_by_title(syllabus_title)
-    item = dm.update_syllabus(existing_syllabus["id"], syllabus_payload) if existing_syllabus else dm.add_syllabus(syllabus_payload)
+    existing_syllabus = dm.find_syllabus_by_title(syllabus_title, owner_id)
+    item = dm.update_syllabus(existing_syllabus["id"], syllabus_payload, owner_id) if existing_syllabus else dm.add_syllabus(syllabus_payload, owner_id)
     result["syllabus"] = 1
     result["items"]["syllabus"] = item.get("id")
 
 
-def _save_courseware_resources(result, categorized, title):
+def _save_courseware_resources(result, categorized, title, owner_id=""):
     if not categorized["courseware"]:
         return
     ids = []
@@ -422,17 +422,17 @@ def _save_courseware_resources(result, categorized, title):
             "chapter": chapter,
             "description": desc,
         }
-        existing_courseware = dm.find_courseware_by_title(payload["title"])
-        item = dm.update_courseware(existing_courseware["id"], payload) if existing_courseware else dm.add_courseware(payload)
+        existing_courseware = dm.find_courseware_by_title(payload["title"], owner_id)
+        item = dm.update_courseware(existing_courseware["id"], payload, owner_id) if existing_courseware else dm.add_courseware(payload, owner_id)
         ids.append(item.get("id"))
     result["courseware"] = len(ids)
     result["items"]["courseware"] = ids
 
 
-def _save_textbook_resource(result, categorized, title, book_id, now):
+def _save_textbook_resource(result, categorized, title, book_id, now, owner_id=""):
     textbook_chapters = categorized.get("textbook_chapters", [])
     final_book_id = book_id or ("tb_" + now)
-    existing_textbook = dm.find_textbook_by_name(title)
+    existing_textbook = dm.find_textbook_by_name(title, owner_id)
     if existing_textbook:
         final_book_id = existing_textbook["id"]
 
@@ -449,7 +449,7 @@ def _save_textbook_resource(result, categorized, title, book_id, now):
             "file_path": "",
             "has_content": True,
         }
-        item = dm.update_textbook(final_book_id, payload) if existing_textbook else dm.add_textbook({"id": final_book_id, **payload})
+        item = dm.update_textbook(final_book_id, payload, owner_id) if existing_textbook else dm.add_textbook({"id": final_book_id, **payload}, owner_id)
         result["textbook"] = max(1, len(textbook_chapters))
         result["items"]["textbook"] = item.get("id")
 
@@ -470,13 +470,13 @@ def smart_import(filepath, book_id=None):
     }
 
 
-def save_categorized(categorized, title, book_id=None):
+def save_categorized(categorized, title, book_id=None, owner_id=""):
     from datetime import datetime
 
     now = datetime.now().strftime("%Y%m%d%H%M%S")
     result = {"items": {}}
-    _save_reference_resource(result, categorized, title)
-    _save_syllabus_resource(result, categorized, title)
-    _save_courseware_resources(result, categorized, title)
-    _save_textbook_resource(result, categorized, title, book_id, now)
+    _save_reference_resource(result, categorized, title, owner_id)
+    _save_syllabus_resource(result, categorized, title, owner_id)
+    _save_courseware_resources(result, categorized, title, owner_id)
+    _save_textbook_resource(result, categorized, title, book_id, now, owner_id)
     return result

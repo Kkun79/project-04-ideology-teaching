@@ -10,6 +10,7 @@ from engine import storage
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 AUTO_POLITICS_ORIGINS = {"gnews-auto", "xinhua-auto"}
+OWNER_FIELD = "owner_id"
 
 
 def _ensure_file(filename: str):
@@ -44,6 +45,76 @@ def _clean_multiline_text(value: Any) -> str:
    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
    lines = [line.rstrip() for line in text.split("\n")]
    return "\n".join(lines).strip()
+
+
+def _clean_owner_id(owner_id: Any) -> str:
+   return _clean_text(owner_id)
+
+
+def _is_public_item(item: dict) -> bool:
+   return not _clean_owner_id(item.get(OWNER_FIELD))
+
+
+def _is_owned_by(item: dict, owner_id: str) -> bool:
+   return bool(owner_id) and _clean_owner_id(item.get(OWNER_FIELD)) == owner_id
+
+
+def _visible_to_user(item: dict, owner_id: str = "") -> bool:
+   if not owner_id:
+      return True
+   return _is_public_item(item) or _is_owned_by(item, owner_id)
+
+
+def _scope_items(data: list, owner_id: str = "") -> list:
+   owner_id = _clean_owner_id(owner_id)
+   if not owner_id:
+      return data
+   return [item for item in data if _visible_to_user(item, owner_id)]
+
+
+def _can_edit_item(item: dict, owner_id: str = "", is_admin: bool = False) -> bool:
+   if is_admin:
+      return True
+   owner_id = _clean_owner_id(owner_id)
+   return bool(owner_id) and _is_owned_by(item, owner_id)
+
+
+def _stamp_owner(item: dict, owner_id: str = "") -> dict:
+   owner_id = _clean_owner_id(owner_id)
+   if owner_id:
+      item[OWNER_FIELD] = owner_id
+   return item
+
+
+def _find_duplicate(data: list, predicate, owner_id: str = "") -> dict | None:
+   owner_id = _clean_owner_id(owner_id)
+   for item in data:
+      if owner_id and not _is_owned_by(item, owner_id):
+         continue
+      if predicate(item):
+         return item
+   return None
+
+
+def _find_editable(filename: str, item_id: str, owner_id: str = "", is_admin: bool = False) -> dict | None:
+   return _find_first(
+      filename,
+      lambda item: item.get("id") == item_id and _can_edit_item(item, owner_id, is_admin),
+   )
+
+
+def _delete_editable(filename: str, item_id: str, owner_id: str = "", is_admin: bool = False) -> bool:
+   data = _read_json(filename)
+   kept = []
+   removed = False
+   for item in data:
+      if item.get("id") == item_id and _can_edit_item(item, owner_id, is_admin):
+         removed = True
+         continue
+      kept.append(item)
+   if removed:
+      _write_json(filename, kept)
+   return removed
 
 
 def _clean_list(values: Any) -> list[str]:
@@ -115,62 +186,66 @@ def _ensure_current_politics_ids(data: list) -> tuple[list, bool]:
 
 # ── 课内知识 ──
 
-def get_textbooks() -> list:
-   return _read_json("textbooks.json")
+def get_textbooks(owner_id: str = "") -> list:
+   return _scope_items(_read_json("textbooks.json"), owner_id)
 
-def find_textbook_by_name(name: str) -> dict | None:
+def find_textbook_by_name(name: str, owner_id: str = "") -> dict | None:
    needle = _normalize_identity(name)
    if not needle:
       return None
-   return _find_first("textbooks.json", lambda item: _normalize_identity(item.get("name", "")) == needle)
+   data = _read_json("textbooks.json")
+   return _find_duplicate(data, lambda item: _normalize_identity(item.get("name", "")) == needle, owner_id)
 
-def add_textbook(item: dict) -> dict:
-   data = get_textbooks()
+def add_textbook(item: dict, owner_id: str = "") -> dict:
+   data = _read_json("textbooks.json")
    item["id"] = item.get("id") or _make_id()
+   _stamp_owner(item, owner_id)
    data.append(item)
    _write_json("textbooks.json", data)
    return item
 
-def delete_textbook(item_id: str):
-   data = get_textbooks()
-   _write_json("textbooks.json", [d for d in data if d["id"] != item_id])
+def delete_textbook(item_id: str, owner_id: str = "", is_admin: bool = False):
+   return _delete_editable("textbooks.json", item_id, owner_id, is_admin)
 
 
-def get_courseware() -> list:
-   return _read_json("courseware.json")
+def get_courseware(owner_id: str = "") -> list:
+   return _scope_items(_read_json("courseware.json"), owner_id)
 
-def find_courseware_by_file_name(file_name: str) -> dict | None:
+def find_courseware_by_file_name(file_name: str, owner_id: str = "") -> dict | None:
    needle = _normalize_identity(file_name)
    if not needle:
       return None
-   return _find_first("courseware.json", lambda item: _normalize_identity(item.get("file_name", "")) == needle)
+   data = _read_json("courseware.json")
+   return _find_duplicate(data, lambda item: _normalize_identity(item.get("file_name", "")) == needle, owner_id)
 
-def find_courseware_by_title(title: str) -> dict | None:
+def find_courseware_by_title(title: str, owner_id: str = "") -> dict | None:
    needle = _normalize_identity(title)
    if not needle:
       return None
-   return _find_first("courseware.json", lambda item: _normalize_identity(item.get("title", "")) == needle)
+   data = _read_json("courseware.json")
+   return _find_duplicate(data, lambda item: _normalize_identity(item.get("title", "")) == needle, owner_id)
 
-def add_courseware(item: dict) -> dict:
-   data = get_courseware()
+def add_courseware(item: dict, owner_id: str = "") -> dict:
+   data = _read_json("courseware.json")
    item["id"] = item.get("id") or _make_id()
+   _stamp_owner(item, owner_id)
    data.append(item)
    _write_json("courseware.json", data)
    return item
 
-def delete_courseware(item_id: str):
-   data = get_courseware()
-   _write_json("courseware.json", [d for d in data if d["id"] != item_id])
+def delete_courseware(item_id: str, owner_id: str = "", is_admin: bool = False):
+   return _delete_editable("courseware.json", item_id, owner_id, is_admin)
 
 
-def get_syllabus() -> list:
-   return _read_json("syllabus.json")
+def get_syllabus(owner_id: str = "") -> list:
+   return _scope_items(_read_json("syllabus.json"), owner_id)
 
-def find_syllabus_by_title(title: str) -> dict | None:
+def find_syllabus_by_title(title: str, owner_id: str = "") -> dict | None:
    needle = _normalize_identity(title)
    if not needle:
       return None
-   return _find_first("syllabus.json", lambda item: _normalize_identity(item.get("title", "")) == needle)
+   data = _read_json("syllabus.json")
+   return _find_duplicate(data, lambda item: _normalize_identity(item.get("title", "")) == needle, owner_id)
 
 def _sanitize_syllabus_item(item: dict, *, validate: bool = True) -> dict:
    clean = {
@@ -197,44 +272,46 @@ def _sanitize_syllabus_item(item: dict, *, validate: bool = True) -> dict:
          raise ValueError("大纲章节不完整，未写入教学大纲")
    return clean
 
-def add_syllabus(item: dict) -> dict:
-   data = get_syllabus()
+def add_syllabus(item: dict, owner_id: str = "") -> dict:
+   data = _read_json("syllabus.json")
    clean = _sanitize_syllabus_item(item)
-   for index, current in enumerate(data):
-      if _same_identity(current.get("title"), clean["title"]):
-         clean["id"] = current.get("id") or _make_id()
-         data[index] = clean
-         _write_json("syllabus.json", data)
-         return clean
+   duplicate = _find_duplicate(data, lambda current: _same_identity(current.get("title"), clean["title"]), owner_id)
+   if duplicate:
+      clean["id"] = duplicate.get("id") or _make_id()
+      _stamp_owner(clean, owner_id)
+      data[data.index(duplicate)] = clean
+      _write_json("syllabus.json", data)
+      return clean
    clean["id"] = _clean_text(item.get("id")) or _make_id()
+   _stamp_owner(clean, owner_id)
    data.append(clean)
    _write_json("syllabus.json", data)
    return clean
 
-def delete_syllabus(item_id: str):
-   data = get_syllabus()
-   _write_json("syllabus.json", [d for d in data if d["id"] != item_id])
+def delete_syllabus(item_id: str, owner_id: str = "", is_admin: bool = False):
+   return _delete_editable("syllabus.json", item_id, owner_id, is_admin)
 
 
-def get_references() -> list:
-   return _read_json("references.json")
+def get_references(owner_id: str = "") -> list:
+   return _scope_items(_read_json("references.json"), owner_id)
 
-def find_reference_by_title(title: str) -> dict | None:
+def find_reference_by_title(title: str, owner_id: str = "") -> dict | None:
    needle = _normalize_identity(title)
    if not needle:
       return None
-   return _find_first("references.json", lambda item: _normalize_identity(item.get("title", "")) == needle)
+   data = _read_json("references.json")
+   return _find_duplicate(data, lambda item: _normalize_identity(item.get("title", "")) == needle, owner_id)
 
-def add_reference(item: dict) -> dict:
-   data = get_references()
+def add_reference(item: dict, owner_id: str = "") -> dict:
+   data = _read_json("references.json")
    item["id"] = _make_id()
+   _stamp_owner(item, owner_id)
    data.append(item)
    _write_json("references.json", data)
    return item
 
-def delete_reference(item_id: str):
-   data = get_references()
-   _write_json("references.json", [d for d in data if d["id"] != item_id])
+def delete_reference(item_id: str, owner_id: str = "", is_admin: bool = False):
+   return _delete_editable("references.json", item_id, owner_id, is_admin)
 
 
 # ── 时政 ──
@@ -246,6 +323,7 @@ def get_current_politics(
    source: str = "",
    date_from: str = "",
    date_to: str = "",
+   owner_id: str = "",
 ) -> list:
    raw = _read_json("current_politics.json")
    data, changed = _ensure_current_politics_ids(raw)
@@ -254,6 +332,7 @@ def get_current_politics(
       _write_json("current_politics.json", data)
    else:
       data = _sort_items_by_date(data)
+   data = _scope_items(data, owner_id)
    if origin == "auto":
       data = [d for d in data if d.get("origin") in AUTO_POLITICS_ORIGINS]
    elif origin == "manual":
@@ -312,27 +391,33 @@ def _sanitize_current_politics_item(item: dict) -> dict:
    return clean
 
 
-def add_current_politics(item: dict) -> dict:
+def add_current_politics(item: dict, owner_id: str = "") -> dict:
    data = _read_json("current_politics.json")
    clean = _sanitize_current_politics_item(item)
-   for index, current in enumerate(data):
-      same_url = clean["url"] and _same_identity(current.get("url", ""), clean["url"])
-      same_title_date = _same_identity(current.get("title", ""), clean["title"]) and _clean_text(current.get("date")) == clean["date"]
-      if same_url or same_title_date:
-         clean["id"] = clean.get("id") or current.get("id") or _make_id()
-         data[index] = clean
-         data = _sort_items_by_date(data)
-         _write_json("current_politics.json", data)
-         return clean
+   duplicate = _find_duplicate(
+      data,
+      lambda current: (
+         (clean["url"] and _same_identity(current.get("url", ""), clean["url"]))
+         or (_same_identity(current.get("title", ""), clean["title"]) and _clean_text(current.get("date")) == clean["date"])
+      ),
+      owner_id,
+   )
+   if duplicate:
+      clean["id"] = clean.get("id") or duplicate.get("id") or _make_id()
+      _stamp_owner(clean, owner_id)
+      data[data.index(duplicate)] = clean
+      data = _sort_items_by_date(data)
+      _write_json("current_politics.json", data)
+      return clean
    clean["id"] = clean.get("id") or _make_id()
+   _stamp_owner(clean, owner_id)
    data.append(clean)
    data = _sort_items_by_date(data)
    _write_json("current_politics.json", data)
    return clean
 
-def delete_current_politics(item_id: str):
-   data = get_current_politics()
-   _write_json("current_politics.json", [d for d in data if d["id"] != item_id])
+def delete_current_politics(item_id: str, owner_id: str = "", is_admin: bool = False):
+   return _delete_editable("current_politics.json", item_id, owner_id, is_admin)
 
 
 def replace_auto_current_politics(items: list) -> list:
@@ -354,8 +439,8 @@ def replace_auto_current_politics(items: list) -> list:
    return merged
 
 
-def get_current_politics_facets() -> dict:
-   data = _sort_items_by_date(_read_json("current_politics.json"))
+def get_current_politics_facets(owner_id: str = "") -> dict:
+   data = _scope_items(_sort_items_by_date(_read_json("current_politics.json")), owner_id)
    tag_counts = Counter()
    source_counts = Counter()
    auto_count = 0
@@ -448,10 +533,11 @@ def _normalize_cases(data: list) -> tuple[list, bool]:
          changed = True
    return normalized, changed
 
-def get_cases(category: str = "", era: str = "", keyword: str = "") -> list:
+def get_cases(category: str = "", era: str = "", keyword: str = "", owner_id: str = "") -> list:
    data, changed = _normalize_cases(_read_json("cases.json"))
    if changed:
       _write_json("cases.json", data)
+   data = _scope_items(data, owner_id)
    data = sorted(
       data,
       key=lambda item: (
@@ -483,17 +569,19 @@ def get_cases(category: str = "", era: str = "", keyword: str = "") -> list:
        data = [d for d in data if _matches(d)]
    return data
 
-def add_case(item: dict) -> dict:
+def add_case(item: dict, owner_id: str = "") -> dict:
    data = _read_json("cases.json")
    clean = _sanitize_case_item(item)
    title = clean["title"]
-   for current in data:
-      if _same_identity(current.get("title"), title):
-         clean["id"] = current.get("id")
-         data[data.index(current)] = clean
-         _write_json("cases.json", data)
-         return clean
+   duplicate = _find_duplicate(data, lambda current: _same_identity(current.get("title"), title), owner_id)
+   if duplicate:
+      clean["id"] = duplicate.get("id")
+      _stamp_owner(clean, owner_id)
+      data[data.index(duplicate)] = clean
+      _write_json("cases.json", data)
+      return clean
    clean["id"] = _clean_text(item.get("id")) or _make_id()
+   _stamp_owner(clean, owner_id)
    data.append(clean)
    _write_json("cases.json", data)
    return clean
@@ -518,15 +606,14 @@ def replace_auto_cases(items: list[dict]) -> list[dict]:
    _write_json("cases.json", manual + auto_items)
    return auto_items
 
-def delete_case(item_id: str):
-   data = _read_json("cases.json")
-   _write_json("cases.json", [d for d in data if d["id"] != item_id])
+def delete_case(item_id: str, owner_id: str = "", is_admin: bool = False):
+   return _delete_editable("cases.json", item_id, owner_id, is_admin)
 
 
 # ── 关键词条 ──
 
-def get_key_terms() -> list:
-   data = _read_json("key_terms.json")
+def get_key_terms(owner_id: str = "") -> list:
+   data = _scope_items(_read_json("key_terms.json"), owner_id)
    return sorted(
       data,
       key=lambda item: (
@@ -587,30 +674,31 @@ def _sanitize_key_term_item(item: dict) -> dict:
       raise ValueError("词条内容不适合沉淀到课堂词条库，未写入")
    return clean
 
-def add_key_term(item: dict) -> dict:
-   data = get_key_terms()
+def add_key_term(item: dict, owner_id: str = "") -> dict:
+   data = _read_json("key_terms.json")
    clean = _sanitize_key_term_item(item)
    term = clean["term"]
-   for current in data:
-      if _same_identity(current.get("term"), term):
-         clean["id"] = current.get("id")
-         data[data.index(current)] = clean
-         _write_json("key_terms.json", data)
-         return clean
+   duplicate = _find_duplicate(data, lambda current: _same_identity(current.get("term"), term), owner_id)
+   if duplicate:
+      clean["id"] = duplicate.get("id")
+      _stamp_owner(clean, owner_id)
+      data[data.index(duplicate)] = clean
+      _write_json("key_terms.json", data)
+      return clean
    clean["id"] = _clean_text(item.get("id")) or _make_id()
+   _stamp_owner(clean, owner_id)
    data.append(clean)
    _write_json("key_terms.json", data)
    return clean
 
-def delete_key_term(item_id: str):
-   data = get_key_terms()
-   _write_json("key_terms.json", [d for d in data if d["id"] != item_id])
+def delete_key_term(item_id: str, owner_id: str = "", is_admin: bool = False):
+   return _delete_editable("key_terms.json", item_id, owner_id, is_admin)
 
 
 # ── 研学规划 ──
 
-def get_study_tours() -> list:
-   return _read_json("study_tours.json")
+def get_study_tours(owner_id: str = "") -> list:
+   return _scope_items(_read_json("study_tours.json"), owner_id)
 
 def _sanitize_study_tour_item(item: dict) -> dict:
    clean = {
@@ -669,29 +757,30 @@ def _is_duplicate_study_tour(current: dict, clean: dict) -> bool:
    return False
 
 
-def add_study_tour(item: dict) -> dict:
+def add_study_tour(item: dict, owner_id: str = "") -> dict:
    data = _read_json("study_tours.json")
    clean = _sanitize_study_tour_item(item)
-   for index, current in enumerate(data):
-      if _is_duplicate_study_tour(current, clean):
-         clean["id"] = current.get("id") or _make_id()
-         data[index] = clean
-         _write_json("study_tours.json", data)
-         return clean
+   duplicate = _find_duplicate(data, lambda current: _is_duplicate_study_tour(current, clean), owner_id)
+   if duplicate:
+      clean["id"] = duplicate.get("id") or _make_id()
+      _stamp_owner(clean, owner_id)
+      data[data.index(duplicate)] = clean
+      _write_json("study_tours.json", data)
+      return clean
    clean["id"] = item.get("id") or _make_id()
+   _stamp_owner(clean, owner_id)
    data.append(clean)
    _write_json("study_tours.json", data)
    return clean
 
-def delete_study_tour(item_id: str):
-   data = get_study_tours()
-   _write_json("study_tours.json", [d for d in data if d["id"] != item_id])
+def delete_study_tour(item_id: str, owner_id: str = "", is_admin: bool = False):
+   return _delete_editable("study_tours.json", item_id, owner_id, is_admin)
 
 
 # ── 情景剧 / 演讲稿 ──
 
-def get_scripts(script_type: str = "", keyword: str = "", source: str = "") -> list:
-   data = _read_json("scripts.json")
+def get_scripts(script_type: str = "", keyword: str = "", source: str = "", owner_id: str = "") -> list:
+   data = _scope_items(_read_json("scripts.json"), owner_id)
    if script_type:
        data = [d for d in data if d.get("type", "") == script_type]
    source = _clean_text(source)
@@ -753,52 +842,53 @@ def _is_duplicate_script(current: dict, clean: dict) -> bool:
    return False
 
 
-def add_script(item: dict) -> dict:
+def add_script(item: dict, owner_id: str = "") -> dict:
    data = _read_json("scripts.json")
    clean = _sanitize_script_item(item)
-   for index, current in enumerate(data):
-      if _is_duplicate_script(current, clean):
-         clean["id"] = current.get("id") or _make_id()
-         data[index] = clean
-         _write_json("scripts.json", data)
-         return clean
+   duplicate = _find_duplicate(data, lambda current: _is_duplicate_script(current, clean), owner_id)
+   if duplicate:
+      clean["id"] = duplicate.get("id") or _make_id()
+      _stamp_owner(clean, owner_id)
+      data[data.index(duplicate)] = clean
+      _write_json("scripts.json", data)
+      return clean
    clean["id"] = item.get("id") or _make_id()
+   _stamp_owner(clean, owner_id)
    data.append(clean)
    _write_json("scripts.json", data)
    return clean
 
-def delete_script(item_id: str):
-   data = get_scripts()
-   _write_json("scripts.json", [d for d in data if d["id"] != item_id])
+def delete_script(item_id: str, owner_id: str = "", is_admin: bool = False):
+   return _delete_editable("scripts.json", item_id, owner_id, is_admin)
 
 
 # ── 虚拟展馆 ──
 
-def get_exhibits() -> list:
-   return _read_json("exhibits.json")
+def get_exhibits(owner_id: str = "") -> list:
+   return _scope_items(_read_json("exhibits.json"), owner_id)
 
-def add_exhibit(item: dict) -> dict:
-   data = get_exhibits()
+def add_exhibit(item: dict, owner_id: str = "") -> dict:
+   data = _read_json("exhibits.json")
    item["id"] = _make_id()
+   _stamp_owner(item, owner_id)
    data.append(item)
    _write_json("exhibits.json", data)
    return item
 
-def delete_exhibit(item_id: str):
-   data = get_exhibits()
-   _write_json("exhibits.json", [d for d in data if d["id"] != item_id])
+def delete_exhibit(item_id: str, owner_id: str = "", is_admin: bool = False):
+   return _delete_editable("exhibits.json", item_id, owner_id, is_admin)
 
 
-def get_data_assist_snapshot() -> dict:
-   textbooks = get_textbooks()
-   courseware = get_courseware()
-   syllabus = get_syllabus()
-   references = get_references()
-   politics = get_current_politics()
-   cases = _read_json("cases.json")
-   study_tours = get_study_tours()
-   scripts = get_scripts()
-   exhibits = get_exhibits()
+def get_data_assist_snapshot(owner_id: str = "") -> dict:
+   textbooks = get_textbooks(owner_id)
+   courseware = get_courseware(owner_id)
+   syllabus = get_syllabus(owner_id)
+   references = get_references(owner_id)
+   politics = get_current_politics(owner_id=owner_id)
+   cases = get_cases(owner_id=owner_id)
+   study_tours = get_study_tours(owner_id)
+   scripts = get_scripts(owner_id=owner_id)
+   exhibits = get_exhibits(owner_id)
 
    case_category_counts = Counter(_clean_text(item.get("category")) for item in cases if _clean_text(item.get("category")))
    case_era_counts = Counter(_clean_text(item.get("era")) for item in cases if _clean_text(item.get("era")))
@@ -846,79 +936,104 @@ def get_data_assist_snapshot() -> dict:
    }
 
 
-def _update_item(filename: str, item_id: str, updates: dict) -> dict | None:
+def _update_item(filename: str, item_id: str, updates: dict, owner_id: str = "", is_admin: bool = False) -> dict | None:
    """通用更新：按 ID 查找并合并字段，返回更新后的对象或 None"""
-   return storage.update_item(filename, item_id, updates)
+   data = _read_json(filename)
+   for index, item in enumerate(data):
+      if item.get("id") != item_id:
+         continue
+      if not _can_edit_item(item, owner_id, is_admin):
+         return None
+      merged = dict(item)
+      clean_updates = dict(updates)
+      clean_updates.pop(OWNER_FIELD, None)
+      merged.update(clean_updates)
+      merged["id"] = item_id
+      if _clean_owner_id(item.get(OWNER_FIELD)):
+         merged[OWNER_FIELD] = _clean_owner_id(item.get(OWNER_FIELD))
+      else:
+         merged.pop(OWNER_FIELD, None)
+      data[index] = merged
+      _write_json(filename, data)
+      return merged
+   return None
 
 
-def update_textbook(item_id: str, updates: dict) -> dict | None:
-   return _update_item("textbooks.json", item_id, updates)
+def can_access_textbook(book_id: str, owner_id: str = "", is_admin: bool = False) -> bool:
+   item = _find_first("textbooks.json", lambda current: current.get("id") == book_id)
+   if not item:
+      return False
+   return is_admin or _visible_to_user(item, owner_id)
 
-def update_courseware(item_id: str, updates: dict) -> dict | None:
-   return _update_item("courseware.json", item_id, updates)
 
-def update_syllabus(item_id: str, updates: dict) -> dict | None:
-   current = _find_first("syllabus.json", lambda item: item.get("id") == item_id)
+def update_textbook(item_id: str, updates: dict, owner_id: str = "", is_admin: bool = False) -> dict | None:
+   return _update_item("textbooks.json", item_id, updates, owner_id, is_admin)
+
+def update_courseware(item_id: str, updates: dict, owner_id: str = "", is_admin: bool = False) -> dict | None:
+   return _update_item("courseware.json", item_id, updates, owner_id, is_admin)
+
+def update_syllabus(item_id: str, updates: dict, owner_id: str = "", is_admin: bool = False) -> dict | None:
+   current = _find_editable("syllabus.json", item_id, owner_id, is_admin)
    if not current:
       return None
    merged = dict(current)
    merged.update(updates)
    clean = _sanitize_syllabus_item(merged)
    clean["id"] = item_id
-   return _update_item("syllabus.json", item_id, clean)
+   return _update_item("syllabus.json", item_id, clean, owner_id, is_admin)
 
-def update_reference(item_id: str, updates: dict) -> dict | None:
-   return _update_item("references.json", item_id, updates)
+def update_reference(item_id: str, updates: dict, owner_id: str = "", is_admin: bool = False) -> dict | None:
+   return _update_item("references.json", item_id, updates, owner_id, is_admin)
 
-def update_current_politics(item_id: str, updates: dict) -> dict | None:
-   current = _find_first("current_politics.json", lambda item: item.get("id") == item_id)
+def update_current_politics(item_id: str, updates: dict, owner_id: str = "", is_admin: bool = False) -> dict | None:
+   current = _find_editable("current_politics.json", item_id, owner_id, is_admin)
    if not current:
       return None
    merged = dict(current)
    merged.update(updates)
    clean = _sanitize_current_politics_item(merged)
    clean["id"] = item_id
-   return _update_item("current_politics.json", item_id, clean)
+   return _update_item("current_politics.json", item_id, clean, owner_id, is_admin)
 
-def update_case(item_id: str, updates: dict) -> dict | None:
-   current = _find_first("cases.json", lambda item: item.get("id") == item_id)
+def update_case(item_id: str, updates: dict, owner_id: str = "", is_admin: bool = False) -> dict | None:
+   current = _find_editable("cases.json", item_id, owner_id, is_admin)
    if not current:
       return None
    merged = dict(current)
    merged.update(updates)
    clean = _sanitize_case_item(merged)
    clean["id"] = item_id
-   return _update_item("cases.json", item_id, clean)
+   return _update_item("cases.json", item_id, clean, owner_id, is_admin)
 
-def update_key_term(item_id: str, updates: dict) -> dict | None:
-   current = _find_first("key_terms.json", lambda item: item.get("id") == item_id)
+def update_key_term(item_id: str, updates: dict, owner_id: str = "", is_admin: bool = False) -> dict | None:
+   current = _find_editable("key_terms.json", item_id, owner_id, is_admin)
    if not current:
       return None
    merged = dict(current)
    merged.update(updates)
    clean = _sanitize_key_term_item(merged)
    clean["id"] = item_id
-   return _update_item("key_terms.json", item_id, clean)
+   return _update_item("key_terms.json", item_id, clean, owner_id, is_admin)
 
-def update_study_tour(item_id: str, updates: dict) -> dict | None:
-   current = _find_first("study_tours.json", lambda item: item.get("id") == item_id)
+def update_study_tour(item_id: str, updates: dict, owner_id: str = "", is_admin: bool = False) -> dict | None:
+   current = _find_editable("study_tours.json", item_id, owner_id, is_admin)
    if not current:
       return None
    merged = dict(current)
    merged.update(updates)
    clean = _sanitize_study_tour_item(merged)
    clean["id"] = item_id
-   return _update_item("study_tours.json", item_id, clean)
+   return _update_item("study_tours.json", item_id, clean, owner_id, is_admin)
 
-def update_script(item_id: str, updates: dict) -> dict | None:
-   current = _find_first("scripts.json", lambda item: item.get("id") == item_id)
+def update_script(item_id: str, updates: dict, owner_id: str = "", is_admin: bool = False) -> dict | None:
+   current = _find_editable("scripts.json", item_id, owner_id, is_admin)
    if not current:
       return None
    merged = dict(current)
    merged.update(updates)
    clean = _sanitize_script_item(merged)
    clean["id"] = item_id
-   return _update_item("scripts.json", item_id, clean)
+   return _update_item("scripts.json", item_id, clean, owner_id, is_admin)
 
-def update_exhibit(item_id: str, updates: dict) -> dict | None:
-   return _update_item("exhibits.json", item_id, updates)
+def update_exhibit(item_id: str, updates: dict, owner_id: str = "", is_admin: bool = False) -> dict | None:
+   return _update_item("exhibits.json", item_id, updates, owner_id, is_admin)
