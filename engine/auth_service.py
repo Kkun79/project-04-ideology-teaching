@@ -26,6 +26,9 @@ MSG_BAD_CREDENTIALS = "\u8d26\u53f7\u6216\u5bc6\u7801\u4e0d\u6b63\u786e"
 MSG_REGISTER_CLOSED = "\u5f53\u524d\u4e0d\u5f00\u653e\u516c\u5f00\u6ce8\u518c"
 MSG_INVITE_REQUIRED = "\u8be5\u6ce8\u518c\u901a\u9053\u9700\u8981\u9080\u8bf7\u7801"
 MSG_INVITE_INVALID = "\u9080\u8bf7\u7801\u65e0\u6548\u6216\u5df2\u88ab\u4f7f\u7528"
+MSG_ADMIN_ONLY = "\u4ec5\u7ba1\u7406\u5458\u53ef\u4ee5\u6267\u884c\u8be5\u64cd\u4f5c"
+MSG_ADMIN_PROTECT = "\u7ba1\u7406\u5458\u8d26\u53f7\u4e0d\u80fd\u88ab\u505c\u7528"
+MSG_STATUS_INVALID = "\u8d26\u53f7\u72b6\u6001\u53ea\u80fd\u8bbe\u4e3a active \u6216 disabled"
 
 
 def _now() -> datetime:
@@ -40,15 +43,36 @@ def _normalize_username(username: str) -> str:
     return " ".join(str(username or "").strip().lower().split())
 
 
+def _format_public_datetime(value: Any) -> str:
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    return str(value or "")
+
+
+def _admin_username() -> str:
+    return _normalize_username(_config_value("ADMIN_USERNAME"))
+
+
+def is_admin_username(username: str) -> bool:
+    admin_name = _admin_username()
+    return bool(admin_name) and _normalize_username(username) == admin_name
+
+
+def is_admin_user(user: dict | None) -> bool:
+    return bool(user and is_admin_username(str(user.get("username", ""))))
+
+
 def _public_user(user: dict) -> dict:
-    created_at = user.get("created_at", "")
-    if isinstance(created_at, datetime):
-        created_at = created_at.strftime("%Y-%m-%d %H:%M:%S")
+    created_at = _format_public_datetime(user.get("created_at", ""))
+    last_login_at = _format_public_datetime(user.get("last_login_at", ""))
+    username = user.get("username", "")
     return {
         "id": user.get("id", ""),
-        "username": user.get("username", ""),
+        "username": username,
         "created_at": created_at,
+        "last_login_at": last_login_at,
         "status": user.get("status", "active"),
+        "is_admin": is_admin_username(str(username)),
     }
 
 
@@ -58,6 +82,16 @@ def _read_users() -> list:
 
 def _write_users(users: list) -> None:
     storage.write_json_list(USERS_FILE, users)
+
+
+def _write_local_users(users: list) -> None:
+    normalized = []
+    for user in users:
+        item = dict(user)
+        item["status"] = item.get("status", "active") or "active"
+        item["last_login_at"] = item.get("last_login_at", "")
+        normalized.append(item)
+    _write_users(normalized)
 
 
 def _password_hash(password: str, salt: str) -> str:
@@ -75,6 +109,16 @@ def _find_user(username: str) -> dict | None:
         return None
     for user in _read_users():
         if _normalize_username(user.get("username", "")) == key:
+            return user
+    return None
+
+
+def _find_user_by_id(user_id: str) -> dict | None:
+    clean_user_id = str(user_id or "").strip()
+    if not clean_user_id:
+        return None
+    for user in _read_users():
+        if str(user.get("id", "")).strip() == clean_user_id:
             return user
     return None
 
@@ -301,6 +345,15 @@ def _write_audit(action: str, user_id: str = "", detail: dict | None = None) -> 
         pass
 
 
+def _revoke_local_user_sessions(user_id: str) -> None:
+    clean_user_id = str(user_id or "").strip()
+    if not clean_user_id:
+        return
+    expired = [token for token, session in _SESSIONS.items() if str(session.get("user_id", "")).strip() == clean_user_id]
+    for token in expired:
+        _SESSIONS.pop(token, None)
+
+
 def validate_username(username: str) -> str:
     clean = str(username or "").strip()
     if len(clean) < 3 or len(clean) > 24:
@@ -328,11 +381,13 @@ def upsert_user(username: str, password: str) -> dict:
             "username": clean_username,
             "salt": salt,
             "password_hash": _password_hash(clean_password, salt),
+            "status": "active",
+            "last_login_at": existing.get("last_login_at", "") if existing else "",
             "created_at": existing.get("created_at") if existing else _now().strftime("%Y-%m-%d %H:%M:%S"),
         }
         users = [item for item in _read_users() if _normalize_username(item.get("username", "")) != _normalize_username(clean_username)]
         users.append(user)
-        _write_users(users)
+        _write_local_users(users)
         return _public_user(user)
 
     _ensure_database()
@@ -449,11 +504,13 @@ def register_user(username: str, password: str, invite_code: str = "") -> dict:
         "username": clean_username,
         "salt": salt,
         "password_hash": _password_hash(clean_password, salt),
+        "status": "active",
+        "last_login_at": "",
         "created_at": _now().strftime("%Y-%m-%d %H:%M:%S"),
     }
     users = _read_users()
     users.append(user)
-    _write_users(users)
+    _write_local_users(users)
     return _public_user(user)
 
 
@@ -476,9 +533,20 @@ def authenticate(username: str, password: str) -> dict:
     user = _find_user(username)
     if not user:
         raise ValueError(MSG_BAD_CREDENTIALS)
+    if user.get("status", "active") != "active":
+        raise ValueError(MSG_BAD_CREDENTIALS)
     candidate = _password_hash(str(password or ""), str(user.get("salt", "")))
     if not hmac.compare_digest(candidate, str(user.get("password_hash", ""))):
         raise ValueError(MSG_BAD_CREDENTIALS)
+    users = _read_users()
+    now_text = _now().strftime("%Y-%m-%d %H:%M:%S")
+    for item in users:
+        if str(item.get("id", "")).strip() == str(user.get("id", "")).strip():
+            item["last_login_at"] = now_text
+            item["status"] = item.get("status", "active") or "active"
+            break
+    _write_local_users(users)
+    user["last_login_at"] = now_text
     return user
 
 
@@ -555,7 +623,9 @@ def get_user_by_token(token: str) -> dict | None:
     if not session:
         return None
     user = _find_user(str(session.get("username", "")))
-    return _public_user(user) if user else None
+    if not user or user.get("status", "active") != "active":
+        return None
+    return _public_user(user)
 
 
 def revoke_token(token: str) -> None:
@@ -585,3 +655,131 @@ def token_from_authorization(value: str) -> str:
     if text.lower().startswith("bearer "):
         return text[7:].strip()
     return ""
+
+
+def list_users() -> list[dict]:
+    if _db_enabled():
+        _ensure_database()
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, username, password_hash, salt, status, created_at, last_login_at
+                    FROM users
+                    ORDER BY created_at DESC, username ASC
+                    """
+                )
+                rows = cur.fetchall()
+        return [_public_user(_row_to_user(row) or {}) for row in rows]
+
+    users = [_public_user(user) for user in _read_users()]
+    users.sort(key=lambda item: (item.get("created_at", ""), item.get("username", "")), reverse=True)
+    return users
+
+
+def _require_supported_status(status: str) -> str:
+    clean_status = str(status or "").strip().lower()
+    if clean_status not in {"active", "disabled"}:
+        raise ValueError(MSG_STATUS_INVALID)
+    return clean_status
+
+
+def admin_reset_user_password(user_id: str, new_password: str) -> dict:
+    clean_password = validate_password(new_password)
+    clean_user_id = str(user_id or "").strip()
+    if not clean_user_id:
+        raise ValueError("用户不存在")
+
+    if _db_enabled():
+        _ensure_database()
+        salt = secrets.token_hex(16)
+        password_hash = _password_hash(clean_password, salt)
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT username FROM users WHERE id = %s", (clean_user_id,))
+                row = cur.fetchone()
+                if not row:
+                    raise ValueError("用户不存在")
+                cur.execute(
+                    """
+                    UPDATE users
+                    SET password_hash = %s, salt = %s
+                    WHERE id = %s
+                    """,
+                    (password_hash, salt, clean_user_id),
+                )
+                cur.execute("DELETE FROM sessions WHERE user_id = %s", (clean_user_id,))
+            conn.commit()
+        saved_user = _db_find_user_by_id(clean_user_id)
+        if saved_user:
+            _write_audit("admin_reset_password", clean_user_id, {"username": saved_user.get("username", "")})
+            return _public_user(saved_user)
+        raise ValueError("用户不存在")
+
+    users = _read_users()
+    target = None
+    for item in users:
+        if str(item.get("id", "")).strip() == clean_user_id:
+            salt = secrets.token_hex(16)
+            item["salt"] = salt
+            item["password_hash"] = _password_hash(clean_password, salt)
+            item["status"] = item.get("status", "active") or "active"
+            target = item
+            break
+    if not target:
+        raise ValueError("用户不存在")
+    _write_local_users(users)
+    _revoke_local_user_sessions(clean_user_id)
+    return _public_user(target)
+
+
+def admin_update_user_status(user_id: str, status: str) -> dict:
+    clean_status = _require_supported_status(status)
+    clean_user_id = str(user_id or "").strip()
+    if not clean_user_id:
+        raise ValueError("用户不存在")
+
+    if _db_enabled():
+        _ensure_database()
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, username, password_hash, salt, status, created_at, last_login_at
+                    FROM users
+                    WHERE id = %s
+                    FOR UPDATE
+                    """,
+                    (clean_user_id,),
+                )
+                row = cur.fetchone()
+                target = _row_to_user(row)
+                if not target:
+                    raise ValueError("用户不存在")
+                if is_admin_user(target) and clean_status != "active":
+                    raise ValueError(MSG_ADMIN_PROTECT)
+                cur.execute("UPDATE users SET status = %s WHERE id = %s", (clean_status, clean_user_id))
+                if clean_status != "active":
+                    cur.execute("DELETE FROM sessions WHERE user_id = %s", (clean_user_id,))
+            conn.commit()
+        saved_user = _db_find_user_by_id(clean_user_id)
+        if saved_user:
+            _write_audit("admin_set_status", clean_user_id, {"username": saved_user.get("username", ""), "status": clean_status})
+            return _public_user(saved_user)
+        raise ValueError("用户不存在")
+
+    users = _read_users()
+    target = None
+    for item in users:
+        if str(item.get("id", "")).strip() == clean_user_id:
+            if is_admin_user(item) and clean_status != "active":
+                raise ValueError(MSG_ADMIN_PROTECT)
+            item["status"] = clean_status
+            target = item
+            break
+    if not target:
+        raise ValueError("用户不存在")
+    _write_local_users(users)
+    if clean_status != "active":
+        _revoke_local_user_sessions(clean_user_id)
+    return _public_user(target)

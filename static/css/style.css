@@ -27,6 +27,7 @@ input, textarea, select {
 }
 input:focus, textarea:focus, select:focus { border-color: var(--accent); }
 textarea { resize: vertical; min-height: 60px; }
+.hidden { display: none !important; }
 
 /* ── CSS Variables ── */
 :root {
@@ -1036,6 +1037,54 @@ body.theme-warm .theme-card[data-theme="warm"] { border-color: var(--accent); }
 }
 /* ── Settings ── */
 .settings-container { max-width: 600px; }
+.admin-users-panel { max-width: none; }
+.admin-user-meta {
+ display: grid;
+ grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+ gap: 10px;
+ margin-bottom: 12px;
+ color: var(--text-secondary);
+ font-size: 0.88rem;
+}
+.admin-user-meta strong {
+ display: block;
+ color: var(--text-primary);
+ font-size: 0.78rem;
+ margin-bottom: 4px;
+}
+.admin-user-actions {
+ display: flex;
+ flex-wrap: wrap;
+ gap: 8px;
+}
+.admin-user-status {
+ display: inline-flex;
+ align-items: center;
+ gap: 6px;
+}
+.admin-user-status.is-disabled {
+ color: var(--warning);
+}
+.admin-user-status.is-active {
+ color: var(--success);
+}
+.admin-user-header {
+ display: flex;
+ align-items: center;
+ justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.admin-user-header .data-item-title {
+ margin-bottom: 0;
+}
+.admin-user-empty {
+  padding: 18px;
+  border: 1px dashed var(--border);
+ border-radius: var(--radius);
+ color: var(--text-secondary);
+ background: rgba(255,255,255,0.7);
+}
 .setting-group {
  background: var(--bg-card);
  border: 1px solid var(--border);

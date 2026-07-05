@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>思政教学程序</title>
-<link rel="stylesheet" href="/static/css/style.css?v=202607041820">
+<link rel="stylesheet" href="/static/css/style.css?v=202607051130">
 </head>
 <body class="auth-pending">
 
@@ -107,6 +107,9 @@
      <li>
        <span class="node" data-section="settings">风格设置</span>
      </li>
+     <li id="admin-nav-item" class="hidden">
+       <span class="node" data-section="admin-users">账号管理</span>
+     </li>
    </ul>
  </nav>
 </aside>
@@ -120,6 +123,7 @@
    <h2 class="page-title" id="pageTitle">首页</h2>
    <div class="topbar-actions">
      <span class="badge user-badge" id="currentUserBadge"></span>
+     <button class="btn btn-secondary btn-sm hidden" id="admin-users-entry" onclick="navigateTo('admin-users')">账号管理</button>
      <button class="btn btn-secondary btn-sm" onclick="logoutAccount()">退出登录</button>
      <span class="badge" id="statusBadge">就绪</span>
    </div>
@@ -148,7 +152,35 @@
              <button class="btn" onclick="loadDataAssist(true)">刷新概览</button>
            </div>
          </div>
-         <div id="data-assist-overview" class="data-assist-grid"></div>
+<div id="data-assist-overview" class="data-assist-grid"></div>
+       </div>
+     </div>
+   </div>
+
+   <div class="panel" id="panel-admin-users">
+     <div class="panel-toolbar">
+       <h3>账号管理</h3>
+       <div class="toolbar-right">
+         <span class="badge" id="admin-users-summary">0 个账号</span>
+         <button class="btn" onclick="loadAdminUsers(true)">刷新列表</button>
+       </div>
+     </div>
+     <div class="settings-container admin-users-panel">
+       <div class="setting-group">
+         <p class="hint">这里可以查看已注册账号、最近登录时间、停用或恢复账号，以及重置密码。密码不会以明文方式显示。</p>
+       </div>
+       <div id="admin-users-list" class="data-list"></div>
+     </div>
+     <div id="admin-password-form" class="form-overlay hidden">
+       <div class="form-card">
+         <h4>重置用户密码</h4>
+         <input id="admin-password-username" placeholder="用户名" disabled />
+         <input id="admin-password-value" type="password" autocomplete="new-password" placeholder="请输入新密码" />
+         <p class="hint">保存后，该用户需要使用新密码重新登录。</p>
+         <div class="form-actions">
+           <button class="btn" onclick="closeAdminPasswordForm()">取消</button>
+           <button class="btn btn-primary" onclick="submitAdminPasswordReset()">保存新密码</button>
+         </div>
        </div>
      </div>
    </div>
@@ -785,10 +817,10 @@
  </div>
 </main>
 
-<script src="/static/js/toast.js?v=202607041820"></script>
-<script src="/static/js/app-core.js?v=202607041820"></script>
+<script src="/static/js/toast.js?v=202607051130"></script>
+<script src="/static/js/app-core.js?v=202607051130"></script>
 <script src="/static/js/app-knowledge.js?v=202607041820"></script>
 <script src="/static/js/app-policy.js?v=202607041820"></script>
-<script src="/static/js/app.js?v=202607041820"></script>
+<script src="/static/js/app.js?v=202607051130"></script>
 </body>
 </html>

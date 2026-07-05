@@ -15,6 +15,21 @@ from engine.smart_importer import save_categorized, smart_import
 from .helpers import decode_base64_payload, require_meaningful_text, resolve_upload_path
 
 
+def _current_user_from_request(request: Request) -> dict:
+    token = auth_service.token_from_authorization(request.headers.get("Authorization", ""))
+    user = auth_service.get_user_by_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="请先登录后再使用程序")
+    return user
+
+
+def _require_admin_user(request: Request) -> dict:
+    user = _current_user_from_request(request)
+    if not auth_service.is_admin_user(user):
+        raise HTTPException(status_code=403, detail=auth_service.MSG_ADMIN_ONLY)
+    return user
+
+
 def _crud_router(prefix, name, get_fn, add_fn, update_fn, delete_fn):
     router = APIRouter(prefix="/api/" + prefix, tags=[name])
 
@@ -98,8 +113,7 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
 
     @app.get("/api/auth/me")
     async def current_account(request: Request):
-        token = auth_service.token_from_authorization(request.headers.get("Authorization", ""))
-        user = auth_service.get_user_by_token(token)
+        user = _current_user_from_request(request)
         if not user:
             raise HTTPException(status_code=401, detail="登录状态已失效")
         return {"user": user}
@@ -113,6 +127,35 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
     @app.get("/api/auth/db-health")
     async def database_health():
         return database.health_check()
+
+    @app.get("/api/admin/users")
+    async def admin_list_users(request: Request):
+        _require_admin_user(request)
+        return {"items": auth_service.list_users()}
+
+    @app.post("/api/admin/users/{user_id}/password")
+    async def admin_reset_password(user_id: str, data: dict, request: Request):
+        _require_admin_user(request)
+        try:
+            user = auth_service.admin_reset_user_password(user_id, data.get("password", ""))
+            return {"ok": True, "user": user}
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    @app.post("/api/admin/users/{user_id}/status")
+    async def admin_update_status(user_id: str, data: dict, request: Request):
+        current_user = _require_admin_user(request)
+        if str(current_user.get("id", "")) == str(user_id) and str(data.get("status", "")).strip().lower() != "active":
+            raise HTTPException(status_code=422, detail="当前登录管理员账号不能被停用")
+        try:
+            user = auth_service.admin_update_user_status(user_id, data.get("status", ""))
+            return {"ok": True, "user": user}
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     @app.post("/api/upload")
     async def upload_file(data: dict):

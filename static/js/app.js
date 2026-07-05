@@ -32,6 +32,8 @@ const GREAT_LEADER_DIALOGUES = [
   }
 ];
 
+let adminPasswordTarget = null;
+
 // ─── 导航 ───
 document.querySelectorAll(".nav-tree .node").forEach(el => {
  el.addEventListener("click", e => {
@@ -73,7 +75,7 @@ function navigateTo(section) {
 function loadPanelData(section) {
  const loaders = {
    "dashboard":     () => loadDataAssist(),
-   "textbook-reader": () => {}, "smart-import":  () => resetSmartImportPanel(),
+    "textbook-reader": () => {}, "smart-import":  () => resetSmartImportPanel(),
    "textbooks":     () => fetchData("/api/textbooks", "textbook-list", renderTextbookItem),
    "courseware":    () => fetchData("/api/courseware", "courseware-list", renderCoursewareItem),
    "syllabus":      () => fetchData("/api/syllabus", "syllabus-list", renderSyllabusItem),
@@ -82,11 +84,12 @@ function loadPanelData(section) {
    "cases-list":    () => loadCases(),
    "keyterms-list": () => loadKeyTerms(),
    "studytour-list":() => fetchData("/api/study-tours", "studytour-list", renderStudyTourItem),
+   "admin-users":   () => loadAdminUsers(),
    "exhibition-view":() => loadExhibition(),
    "ancestor-dialogue":() => loadAncestorDialogue(),
    "scripts-list":  () => loadScripts(),
- };
- if (loaders[section]) loaders[section]();
+  };
+  if (loaders[section]) loaders[section]();
 }
 
 // ─── 大数据辅助 ───
@@ -236,6 +239,112 @@ async function saveStudyTour() {
  await api("/api/study-tours", "POST", item);
  closeForm("studytour-form");
  fetchData("/api/study-tours", "studytour-list", renderStudyTourItem);
+}
+
+function renderAdminUserItem(user) {
+ const isDisabled = (user.status || "") === "disabled";
+ const isAdmin = !!user.is_admin;
+ const nextStatus = isDisabled ? "active" : "disabled";
+ const statusLabel = isDisabled ? "已停用" : "正常";
+ const statusClass = isDisabled ? "is-disabled" : "is-active";
+ const adminBadge = isAdmin ? '<span class="tag">管理员</span>' : "";
+ const lastLogin = user.last_login_at ? esc(user.last_login_at) : "未记录";
+ const createdAt = user.created_at ? esc(user.created_at) : "未记录";
+ const statusButton = isAdmin
+   ? ""
+   : '<button class="btn btn-sm" onclick="toggleAdminUserStatus(\'' + jsArg(user.id) + '\',\'' + nextStatus + '\',\'' + jsArg(user.username) + '\')">' + (isDisabled ? "启用账号" : "停用账号") + '</button>';
+ return '<div class="data-item">' +
+   '<div class="data-item-header">' +
+     '<div class="admin-user-header">' +
+       '<div class="data-item-title">' + esc(user.username) + '</div>' +
+       '<span class="admin-user-status ' + statusClass + '">' + statusLabel + '</span>' +
+       adminBadge +
+     '</div>' +
+     '<div class="data-item-actions admin-user-actions">' +
+       '<button class="btn btn-secondary btn-sm" onclick="openAdminPasswordForm(\'' + jsArg(user.id) + '\',\'' + jsArg(user.username) + '\')">重置密码</button>' +
+       statusButton +
+     '</div>' +
+   '</div>' +
+   '<div class="data-item-body">' +
+     '<div class="admin-user-meta">' +
+       '<div><strong>用户 ID</strong>' + esc(user.id || "") + '</div>' +
+       '<div><strong>创建时间</strong>' + createdAt + '</div>' +
+       '<div><strong>最近登录</strong>' + lastLogin + '</div>' +
+     '</div>' +
+   '</div>' +
+ '</div>';
+}
+
+async function loadAdminUsers(showToast = false) {
+ const container = document.getElementById("admin-users-list");
+ const summary = document.getElementById("admin-users-summary");
+ if (!container) return;
+ if (typeof window.isAdminUser === "function" && !window.isAdminUser()) {
+   if (summary) summary.textContent = "无权限";
+   container.innerHTML = '<div class="admin-user-empty">只有管理员可以查看账号管理。</div>';
+   if (typeof navigateTo === "function") navigateTo("dashboard");
+   return;
+ }
+ if (typeof showLoading === "function") showLoading("admin-users-list");
+ try {
+   const data = await api("/api/admin/users");
+   const items = Array.isArray(data.items) ? data.items : [];
+   if (summary) summary.textContent = items.length + " 个账号";
+   container.innerHTML = items.length
+     ? items.map(renderAdminUserItem).join("")
+     : '<div class="admin-user-empty">当前还没有注册账号。</div>';
+   if (showToast && typeof showSuccess === "function") showSuccess("账号列表已刷新");
+ } catch (e) {
+   if (summary) summary.textContent = "加载失败";
+   container.innerHTML = '<div class="admin-user-empty">账号列表加载失败，请稍后重试。</div>';
+   if (String(e && e.message || "").includes("管理员") && typeof navigateTo === "function") {
+     navigateTo("dashboard");
+   }
+ }
+}
+
+function openAdminPasswordForm(userId, username) {
+ adminPasswordTarget = { userId: userId, username: username };
+ const nameInput = document.getElementById("admin-password-username");
+ const passwordInput = document.getElementById("admin-password-value");
+ if (nameInput) nameInput.value = username || "";
+ if (passwordInput) passwordInput.value = "";
+ showForm("admin-password-form");
+ if (passwordInput) passwordInput.focus();
+}
+
+function closeAdminPasswordForm() {
+ adminPasswordTarget = null;
+ const nameInput = document.getElementById("admin-password-username");
+ const passwordInput = document.getElementById("admin-password-value");
+ if (nameInput) nameInput.value = "";
+ if (passwordInput) passwordInput.value = "";
+ closeForm("admin-password-form");
+}
+
+async function submitAdminPasswordReset() {
+ if (!adminPasswordTarget) return;
+ const password = document.getElementById("admin-password-value")?.value || "";
+ if (!password.trim()) {
+   if (typeof showError === "function") showError("请输入新密码");
+   return;
+ }
+ await api("/api/admin/users/" + encodeURIComponent(adminPasswordTarget.userId) + "/password", "POST", {
+   password: password
+ });
+ closeAdminPasswordForm();
+ if (typeof showSuccess === "function") showSuccess("密码已重置");
+ loadAdminUsers();
+}
+
+async function toggleAdminUserStatus(userId, nextStatus, username) {
+ const actionText = nextStatus === "disabled" ? "停用" : "启用";
+ if (!confirm("确定要" + actionText + "账号“" + (username || "") + "”吗？")) return;
+ await api("/api/admin/users/" + encodeURIComponent(userId) + "/status", "POST", {
+   status: nextStatus
+ });
+ if (typeof showSuccess === "function") showSuccess("账号状态已更新");
+ loadAdminUsers();
 }
 
 // ─── 虚拟展馆 ───
@@ -944,6 +1053,11 @@ window.closeTextbookReader = closeTextbookReader;
 window.toggleReaderFontSize = toggleReaderFontSize;
 window.toggleFullscreen = toggleFullscreen;
 window.loadDataAssist = loadDataAssist;
+window.loadAdminUsers = loadAdminUsers;
+window.openAdminPasswordForm = openAdminPasswordForm;
+window.closeAdminPasswordForm = closeAdminPasswordForm;
+window.submitAdminPasswordReset = submitAdminPasswordReset;
+window.toggleAdminUserStatus = toggleAdminUserStatus;
 window.smartImportDocument = smartImportDocument;
 window.showCoursewareForm = showCoursewareForm;
 window.saveCourseware = saveCourseware;

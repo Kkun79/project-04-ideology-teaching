@@ -10,6 +10,7 @@ let authConfig = {
   registration_enabled: true,
   invite_required: false
 };
+let currentAuthUser = null;
 
 function getAuthToken() {
   return localStorage.getItem(AUTH_TOKEN_KEY) || "";
@@ -23,14 +24,45 @@ function authHeaders(extra = {}) {
 }
 
 function setAuthSession(payload) {
+  currentAuthUser = payload.user || null;
   localStorage.setItem(AUTH_TOKEN_KEY, payload.token || "");
-  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(payload.user || {}));
-  unlockApp(payload.user || {});
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(currentAuthUser || {}));
+  unlockApp(currentAuthUser || {});
 }
 
 function clearAuthSession() {
+  currentAuthUser = null;
   localStorage.removeItem(AUTH_TOKEN_KEY);
   localStorage.removeItem(AUTH_USER_KEY);
+}
+
+function getAuthUser() {
+  if (currentAuthUser) return currentAuthUser;
+  try {
+    currentAuthUser = JSON.parse(localStorage.getItem(AUTH_USER_KEY) || "null");
+  } catch (e) {
+    currentAuthUser = null;
+  }
+  return currentAuthUser;
+}
+
+function isAdminUser() {
+  const user = getAuthUser();
+  return !!(user && user.is_admin);
+}
+
+function syncAdminEntryVisibility() {
+  const navItem = document.getElementById("admin-nav-item");
+  const quickEntry = document.getElementById("admin-users-entry");
+  const allowed = isAdminUser();
+  if (navItem) navItem.classList.toggle("hidden", !allowed);
+  if (quickEntry) quickEntry.classList.toggle("hidden", !allowed);
+  if (!allowed) {
+    const panel = document.getElementById("panel-admin-users");
+    if (panel && panel.classList.contains("active") && typeof navigateTo === "function") {
+      navigateTo("dashboard");
+    }
+  }
 }
 
 function setAuthMessage(message, isError = false) {
@@ -105,16 +137,27 @@ async function loadAuthConfig() {
 }
 
 function lockAppForAuth(message = "") {
+  currentAuthUser = null;
+  const badge = document.getElementById("currentUserBadge");
+  if (badge) badge.textContent = "";
+  document.body.classList.remove("auth-pending");
   document.body.classList.remove("auth-unlocked");
   document.body.classList.add("auth-locked");
+  syncAdminEntryVisibility();
   if (message) setAuthMessage(message, true);
 }
 
 function unlockApp(user) {
+  currentAuthUser = user || null;
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(currentAuthUser || {}));
   document.body.classList.remove("auth-pending", "auth-locked");
   document.body.classList.add("auth-unlocked");
   const badge = document.getElementById("currentUserBadge");
-  if (badge) badge.textContent = user?.username ? "当前账号：" + user.username : "";
+  if (badge) {
+    const label = currentAuthUser?.username ? "当前账号：" + currentAuthUser.username : "";
+    badge.textContent = currentAuthUser?.is_admin ? (label ? label + " · 管理员" : "管理员") : label;
+  }
+  syncAdminEntryVisibility();
   setAuthMessage("");
 }
 
@@ -271,3 +314,6 @@ function jsArg(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/'/g, 
 window.authHeaders = authHeaders;
 window.lockAppForAuth = lockAppForAuth;
 window.logoutAccount = logoutAccount;
+window.getAuthUser = getAuthUser;
+window.isAdminUser = isAdminUser;
+window.syncAdminEntryVisibility = syncAdminEntryVisibility;
