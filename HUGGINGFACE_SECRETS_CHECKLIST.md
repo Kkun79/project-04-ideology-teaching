@@ -20,6 +20,13 @@ Add these in `Settings -> Variables and secrets` or `Settings -> Secrets`.
   - Invite codes separated by commas, semicolons, or new lines
   - Example: `student-a01,student-a02,student-a03`
 
+## Optional permanent reusable invite codes
+
+- `APP_REGISTRATION_REUSABLE_INVITE_CODES`
+  - These codes can be used permanently and repeatedly
+  - Invite codes separated by commas, semicolons, or new lines
+  - Example: `student-a01,student-a02,student-a03`
+
 ## Recommended
 
 - `APP_REGISTRATION_MODE`

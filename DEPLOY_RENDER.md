@@ -15,6 +15,7 @@ Render will prompt for these secret values:
 - `ADMIN_PASSWORD`
 - `DEEPSEEK_API_KEY`
 - `APP_REGISTRATION_INVITE_CODES`
+- `APP_REGISTRATION_REUSABLE_INVITE_CODES`
 
 Render defaults to invite-only registration:
 
@@ -22,10 +23,16 @@ Render defaults to invite-only registration:
 APP_REGISTRATION_MODE=invite_only
 ```
 
-Use `APP_REGISTRATION_INVITE_CODES` to define who can register, for example:
+Use `APP_REGISTRATION_INVITE_CODES` for one-time invite codes:
 
 ```text
 teacher-a01,teacher-a02
+```
+
+Use `APP_REGISTRATION_REUSABLE_INVITE_CODES` for permanent reusable invite codes:
+
+```text
+student-a01,student-a02,student-a03
 ```
 
 ## Neon database

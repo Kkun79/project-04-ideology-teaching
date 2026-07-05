@@ -31,6 +31,7 @@ Add these as Space secrets:
 - `ADMIN_PASSWORD`
 - `DEEPSEEK_API_KEY`
 - `APP_REGISTRATION_INVITE_CODES`
+- `APP_REGISTRATION_REUSABLE_INVITE_CODES` for permanent reusable invite codes
 
 The Docker image now uses invite-only registration by default:
 
@@ -38,10 +39,16 @@ The Docker image now uses invite-only registration by default:
 APP_REGISTRATION_MODE=invite_only
 ```
 
-`APP_REGISTRATION_INVITE_CODES` can use commas, semicolons, or new lines, for example:
+One-time invite codes:
 
 ```text
 class2026-a1,class2026-a2
+```
+
+Permanent reusable invite codes:
+
+```text
+student-a01,student-a02,student-a03
 ```
 
 ## Verify after deploy

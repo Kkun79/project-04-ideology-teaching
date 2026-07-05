@@ -21,6 +21,7 @@ Configure these secrets in the Space settings:
 - `ADMIN_PASSWORD`
 - `DEEPSEEK_API_KEY`
 - `APP_REGISTRATION_INVITE_CODES`
+- `APP_REGISTRATION_REUSABLE_INVITE_CODES` if you want permanent reusable codes
 
 Optional override:
 
@@ -29,6 +30,6 @@ Optional override:
 ## Notes
 
 - The container defaults to `APP_REGISTRATION_MODE=invite_only`.
-- Registration succeeds only when the user enters a valid invite code from
-  `APP_REGISTRATION_INVITE_CODES`.
+- `APP_REGISTRATION_INVITE_CODES` stays one-time use.
+- `APP_REGISTRATION_REUSABLE_INVITE_CODES` stays reusable and will not be consumed.
 - The app listens on port `7860`.

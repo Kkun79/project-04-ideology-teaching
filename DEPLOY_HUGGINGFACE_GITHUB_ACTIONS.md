@@ -42,6 +42,7 @@ In the Hugging Face Space settings, add these secrets:
 - `ADMIN_PASSWORD`
 - `DEEPSEEK_API_KEY`
 - `APP_REGISTRATION_INVITE_CODES`
+- `APP_REGISTRATION_REUSABLE_INVITE_CODES`
 
 Optional override:
 
@@ -52,3 +53,6 @@ Example invite codes:
 ```text
 student-a01,student-a02,student-a03
 ```
+
+If you want these three codes to stay permanent and reusable, put them in
+`APP_REGISTRATION_REUSABLE_INVITE_CODES` instead of the one-time code variable.

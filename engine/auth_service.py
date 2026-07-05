@@ -130,8 +130,8 @@ def _invite_code_hint(invite_code: str) -> str:
     return code[:2] + "*" * max(2, len(code) - 4) + code[-2:]
 
 
-def _configured_invite_codes() -> list[str]:
-    raw_value = _config_value("APP_REGISTRATION_INVITE_CODES")
+def _configured_code_list(env_name: str) -> list[str]:
+    raw_value = _config_value(env_name)
     if not raw_value:
         return []
     parts = []
@@ -144,6 +144,19 @@ def _configured_invite_codes() -> list[str]:
         seen.add(code)
         parts.append(code)
     return parts
+
+
+def _configured_invite_codes() -> list[str]:
+    return _configured_code_list("APP_REGISTRATION_INVITE_CODES")
+
+
+def _configured_reusable_invite_codes() -> list[str]:
+    return _configured_code_list("APP_REGISTRATION_REUSABLE_INVITE_CODES")
+
+
+def _is_reusable_invite_code(invite_code: str) -> bool:
+    code = _clean_invite_code(invite_code)
+    return bool(code) and code in _configured_reusable_invite_codes()
 
 
 def _invite_codes_signature(codes: list[str]) -> str:
@@ -370,6 +383,7 @@ def register_user(username: str, password: str, invite_code: str = "") -> dict:
     clean_username = validate_username(username)
     clean_password = validate_password(password)
     clean_invite_code = _require_valid_invite(invite_code) if mode == "invite_only" else ""
+    reusable_invite_code = mode == "invite_only" and _is_reusable_invite_code(clean_invite_code)
     if _db_enabled():
         _ensure_database()
         salt = secrets.token_hex(16)
@@ -385,7 +399,7 @@ def register_user(username: str, password: str, invite_code: str = "") -> dict:
                 cur.execute("SELECT 1 FROM users WHERE lower(username) = lower(%s)", (clean_username,))
                 if cur.fetchone():
                     raise ValueError(MSG_USER_EXISTS)
-                if mode == "invite_only":
+                if mode == "invite_only" and not reusable_invite_code:
                     cur.execute(
                         """
                         SELECT code_hash
@@ -410,7 +424,7 @@ def register_user(username: str, password: str, invite_code: str = "") -> dict:
                         user["status"],
                     ),
                 )
-                if mode == "invite_only":
+                if mode == "invite_only" and not reusable_invite_code:
                     cur.execute(
                         """
                         UPDATE invite_codes
@@ -426,7 +440,7 @@ def register_user(username: str, password: str, invite_code: str = "") -> dict:
 
     if _find_user(clean_username):
         raise ValueError(MSG_USER_EXISTS)
-    if mode == "invite_only":
+    if mode == "invite_only" and not reusable_invite_code:
         _consume_local_invite_code(clean_invite_code)
 
     salt = secrets.token_hex(16)
