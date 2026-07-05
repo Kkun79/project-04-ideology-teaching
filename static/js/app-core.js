@@ -11,9 +11,10 @@ let authConfig = {
   invite_required: false
 };
 let currentAuthUser = null;
+let currentAuthToken = "";
 
 function getAuthToken() {
-  return localStorage.getItem(AUTH_TOKEN_KEY) || "";
+  return currentAuthToken || "";
 }
 
 function authHeaders(extra = {}) {
@@ -25,24 +26,25 @@ function authHeaders(extra = {}) {
 
 function setAuthSession(payload) {
   currentAuthUser = payload.user || null;
-  localStorage.setItem(AUTH_TOKEN_KEY, payload.token || "");
-  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(currentAuthUser || {}));
+  currentAuthToken = payload.token || "";
+  clearStoredAuthSession();
   unlockApp(currentAuthUser || {});
 }
 
 function clearAuthSession() {
   currentAuthUser = null;
+  currentAuthToken = "";
+  clearStoredAuthSession();
+}
+
+function clearStoredAuthSession() {
   localStorage.removeItem(AUTH_TOKEN_KEY);
   localStorage.removeItem(AUTH_USER_KEY);
+  sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  sessionStorage.removeItem(AUTH_USER_KEY);
 }
 
 function getAuthUser() {
-  if (currentAuthUser) return currentAuthUser;
-  try {
-    currentAuthUser = JSON.parse(localStorage.getItem(AUTH_USER_KEY) || "null");
-  } catch (e) {
-    currentAuthUser = null;
-  }
   return currentAuthUser;
 }
 
@@ -149,7 +151,6 @@ function lockAppForAuth(message = "") {
 
 function unlockApp(user) {
   currentAuthUser = user || null;
-  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(currentAuthUser || {}));
   document.body.classList.remove("auth-pending", "auth-locked");
   document.body.classList.add("auth-unlocked");
   const badge = document.getElementById("currentUserBadge");
@@ -197,20 +198,8 @@ async function submitAuthForm(event) {
 }
 
 async function checkExistingAuth() {
-  const token = getAuthToken();
-  if (!token) {
-    lockAppForAuth("");
-    return;
-  }
-  try {
-    const res = await fetch("/api/auth/me", { headers: authHeaders() });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || "登录状态已失效");
-    unlockApp(data.user || {});
-  } catch (e) {
-    clearAuthSession();
-    lockAppForAuth("登录状态已失效，请重新登录");
-  }
+  clearAuthSession();
+  lockAppForAuth("");
 }
 
 async function logoutAccount() {
