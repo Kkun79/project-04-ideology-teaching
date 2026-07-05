@@ -140,6 +140,8 @@ async function loadAuthConfig() {
 
 function lockAppForAuth(message = "") {
   currentAuthUser = null;
+  currentAuthToken = "";
+  clearStoredAuthSession();
   const badge = document.getElementById("currentUserBadge");
   if (badge) badge.textContent = "";
   document.body.classList.remove("auth-pending");
@@ -347,6 +349,7 @@ function esc(s) { if (!s) return ""; const d = document.createElement("div"); d.
 function jsArg(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\r?\n/g, " "); }
 
 window.authHeaders = authHeaders;
+window.clearAuthSession = clearAuthSession;
 window.lockAppForAuth = lockAppForAuth;
 window.logoutAccount = logoutAccount;
 window.showDeleteAccountForm = showDeleteAccountForm;

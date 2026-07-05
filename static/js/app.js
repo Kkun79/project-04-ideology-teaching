@@ -249,6 +249,8 @@ function renderAdminUserItem(user) {
  const statusLabel = isDeleted ? "已注销" : (isDisabled ? "已停用" : "正常");
  const statusClass = isDeleted ? "is-disabled" : (isDisabled ? "is-disabled" : "is-active");
  const adminBadge = isAdmin ? '<span class="tag">管理员</span>' : "";
+ const currentUser = typeof getAuthUser === "function" ? getAuthUser() : null;
+ const isCurrentUser = currentUser && String(currentUser.id || "") === String(user.id || "");
  const lastLogin = user.last_login_at ? esc(user.last_login_at) : "未记录";
  const createdAt = user.created_at ? esc(user.created_at) : "未记录";
  const statusButton = (isAdmin || isDeleted)
@@ -256,7 +258,7 @@ function renderAdminUserItem(user) {
    : '<button class="btn btn-sm" onclick="toggleAdminUserStatus(\'' + jsArg(user.id) + '\',\'' + nextStatus + '\',\'' + jsArg(user.username) + '\')">' + (isDisabled ? "启用账号" : "停用账号") + '</button>';
  const passwordButton = isDeleted
    ? ""
-   : '<button class="btn btn-secondary btn-sm" onclick="openAdminPasswordForm(\'' + jsArg(user.id) + '\',\'' + jsArg(user.username) + '\')">重置密码</button>';
+   : '<button class="btn btn-secondary btn-sm" onclick="openAdminPasswordForm(\'' + jsArg(user.id) + '\',\'' + jsArg(user.username) + '\')">' + (isCurrentUser ? "修改密码" : "重置密码") + '</button>';
  const deleteButton = (isAdmin || isDeleted)
    ? ""
    : '<button class="btn btn-danger btn-sm" onclick="cancelAdminUserAccount(\'' + jsArg(user.id) + '\',\'' + jsArg(user.username) + '\')">注销账号</button>';
@@ -333,6 +335,8 @@ function closeAdminPasswordForm() {
 async function submitAdminPasswordReset() {
  if (!adminPasswordTarget) return;
  const password = document.getElementById("admin-password-value")?.value || "";
+ const authUser = typeof getAuthUser === "function" ? getAuthUser() : null;
+ const isCurrentUser = authUser && String(authUser.id || "") === String(adminPasswordTarget.userId || "");
  if (!password.trim()) {
    if (typeof showError === "function") showError("请输入新密码");
    return;
@@ -341,6 +345,12 @@ async function submitAdminPasswordReset() {
    password: password
  });
  closeAdminPasswordForm();
+ if (isCurrentUser) {
+   if (typeof showSuccess === "function") showSuccess("密码已修改，请重新登录");
+   if (typeof clearAuthSession === "function") clearAuthSession();
+   if (typeof lockAppForAuth === "function") lockAppForAuth("密码已修改，请使用新密码重新登录");
+   return;
+ }
  if (typeof showSuccess === "function") showSuccess("密码已重置");
  loadAdminUsers();
 }
