@@ -323,6 +323,15 @@ function openAdminPasswordForm(userId, username) {
  if (passwordInput) passwordInput.focus();
 }
 
+function openCurrentAdminPasswordForm() {
+ const authUser = typeof getAuthUser === "function" ? getAuthUser() : null;
+ if (!authUser || !authUser.is_admin || !authUser.id) {
+   if (typeof showError === "function") showError("只有管理员可以修改管理员密码");
+   return;
+ }
+ openAdminPasswordForm(authUser.id, authUser.username || "管理员");
+}
+
 function closeAdminPasswordForm() {
  adminPasswordTarget = null;
  const nameInput = document.getElementById("admin-password-username");
@@ -1081,6 +1090,7 @@ window.toggleFullscreen = toggleFullscreen;
 window.loadDataAssist = loadDataAssist;
 window.loadAdminUsers = loadAdminUsers;
 window.openAdminPasswordForm = openAdminPasswordForm;
+window.openCurrentAdminPasswordForm = openCurrentAdminPasswordForm;
 window.closeAdminPasswordForm = closeAdminPasswordForm;
 window.submitAdminPasswordReset = submitAdminPasswordReset;
 window.toggleAdminUserStatus = toggleAdminUserStatus;
