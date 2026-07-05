@@ -124,6 +124,21 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
         auth_service.revoke_token(token)
         return {"ok": True}
 
+    @app.post("/api/auth/delete-account")
+    async def delete_account(data: dict, request: Request):
+        user = _current_user_from_request(request)
+        try:
+            deleted_user = auth_service.cancel_user_account(
+                str(user.get("id", "")),
+                data.get("password", ""),
+                data.get("confirmation", ""),
+            )
+            return {"ok": True, "user": deleted_user}
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
     @app.get("/api/auth/db-health")
     async def database_health():
         return database.health_check()

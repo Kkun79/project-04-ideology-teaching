@@ -29,6 +29,9 @@ MSG_INVITE_INVALID = "\u9080\u8bf7\u7801\u65e0\u6548\u6216\u5df2\u88ab\u4f7f\u75
 MSG_ADMIN_ONLY = "\u4ec5\u7ba1\u7406\u5458\u53ef\u4ee5\u6267\u884c\u8be5\u64cd\u4f5c"
 MSG_ADMIN_PROTECT = "\u7ba1\u7406\u5458\u8d26\u53f7\u4e0d\u80fd\u88ab\u505c\u7528"
 MSG_STATUS_INVALID = "\u8d26\u53f7\u72b6\u6001\u53ea\u80fd\u8bbe\u4e3a active \u6216 disabled"
+MSG_DELETE_CONFIRM = "\u8bf7\u8f93\u5165\u201c\u6ce8\u9500\u8d26\u53f7\u201d\u786e\u8ba4\u64cd\u4f5c"
+MSG_DELETE_ADMIN_PROTECT = "\u7ba1\u7406\u5458\u8d26\u53f7\u4e0d\u80fd\u5728\u8fd9\u91cc\u6ce8\u9500\uff0c\u8bf7\u5148\u8bbe\u7f6e\u65b0\u7ba1\u7406\u5458\u540e\u518d\u5904\u7406"
+MSG_DELETED_ACCOUNT = "\u8be5\u8d26\u53f7\u5df2\u6ce8\u9500\uff0c\u4e0d\u80fd\u7ee7\u7eed\u64cd\u4f5c"
 
 
 def _now() -> datetime:
@@ -550,6 +553,65 @@ def authenticate(username: str, password: str) -> dict:
     return user
 
 
+def _require_delete_confirmation(confirmation: str) -> None:
+    if str(confirmation or "").strip() != "\u6ce8\u9500\u8d26\u53f7":
+        raise ValueError(MSG_DELETE_CONFIRM)
+
+
+def cancel_user_account(user_id: str, password: str, confirmation: str) -> dict:
+    _require_delete_confirmation(confirmation)
+    clean_user_id = str(user_id or "").strip()
+    if not clean_user_id:
+        raise ValueError(MSG_BAD_CREDENTIALS)
+
+    if _db_enabled():
+        _ensure_database()
+        with db.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, username, password_hash, salt, status, created_at, last_login_at
+                    FROM users
+                    WHERE id = %s
+                    FOR UPDATE
+                    """,
+                    (clean_user_id,),
+                )
+                row = cur.fetchone()
+                user = _row_to_user(row)
+                if not user or user.get("status") != "active":
+                    raise ValueError(MSG_BAD_CREDENTIALS)
+                if is_admin_user(user):
+                    raise ValueError(MSG_DELETE_ADMIN_PROTECT)
+                candidate = _password_hash(str(password or ""), str(user.get("salt", "")))
+                if not hmac.compare_digest(candidate, str(user.get("password_hash", ""))):
+                    raise ValueError(MSG_BAD_CREDENTIALS)
+                cur.execute("UPDATE users SET status = 'deleted' WHERE id = %s", (clean_user_id,))
+                cur.execute("DELETE FROM sessions WHERE user_id = %s", (clean_user_id,))
+            conn.commit()
+        _write_audit("delete_account", clean_user_id, {"username": user.get("username", "")})
+        user["status"] = "deleted"
+        return _public_user(user)
+
+    users = _read_users()
+    target = None
+    for item in users:
+        if str(item.get("id", "")).strip() == clean_user_id:
+            target = item
+            break
+    if not target or target.get("status", "active") != "active":
+        raise ValueError(MSG_BAD_CREDENTIALS)
+    if is_admin_user(target):
+        raise ValueError(MSG_DELETE_ADMIN_PROTECT)
+    candidate = _password_hash(str(password or ""), str(target.get("salt", "")))
+    if not hmac.compare_digest(candidate, str(target.get("password_hash", ""))):
+        raise ValueError(MSG_BAD_CREDENTIALS)
+    target["status"] = "deleted"
+    _write_local_users(users)
+    _revoke_local_user_sessions(clean_user_id)
+    return _public_user(target)
+
+
 def create_session(user: dict) -> dict:
     token = secrets.token_urlsafe(32)
     if _db_enabled():
@@ -696,10 +758,12 @@ def admin_reset_user_password(user_id: str, new_password: str) -> dict:
         password_hash = _password_hash(clean_password, salt)
         with db.get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT username FROM users WHERE id = %s", (clean_user_id,))
+                cur.execute("SELECT username, status FROM users WHERE id = %s", (clean_user_id,))
                 row = cur.fetchone()
                 if not row:
                     raise ValueError("用户不存在")
+                if row[1] == "deleted":
+                    raise ValueError(MSG_DELETED_ACCOUNT)
                 cur.execute(
                     """
                     UPDATE users
@@ -756,6 +820,8 @@ def admin_update_user_status(user_id: str, status: str) -> dict:
                 target = _row_to_user(row)
                 if not target:
                     raise ValueError("用户不存在")
+                if target.get("status") == "deleted":
+                    raise ValueError(MSG_DELETED_ACCOUNT)
                 if is_admin_user(target) and clean_status != "active":
                     raise ValueError(MSG_ADMIN_PROTECT)
                 cur.execute("UPDATE users SET status = %s WHERE id = %s", (clean_status, clean_user_id))
@@ -772,6 +838,8 @@ def admin_update_user_status(user_id: str, status: str) -> dict:
     target = None
     for item in users:
         if str(item.get("id", "")).strip() == clean_user_id:
+            if item.get("status") == "deleted":
+                raise ValueError(MSG_DELETED_ACCOUNT)
             if is_admin_user(item) and clean_status != "active":
                 raise ValueError(MSG_ADMIN_PROTECT)
             item["status"] = clean_status

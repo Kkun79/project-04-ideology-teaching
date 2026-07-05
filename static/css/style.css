@@ -491,6 +491,9 @@ body.theme-warm .theme-card[data-theme="warm"] { border-color: var(--accent); }
 }
 .form-card h4 { margin-bottom: 16px; font-size: 1.1rem; }
 .form-card input, .form-card textarea, .form-card select { margin-bottom: 12px; }
+.account-danger-card {
+ border-top: 4px solid #e74c3c;
+}
 .form-actions {
  display: flex;
  justify-content: flex-end;

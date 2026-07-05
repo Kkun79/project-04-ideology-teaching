@@ -222,6 +222,52 @@ async function logoutAccount() {
   lockAppForAuth("已退出登录");
 }
 
+function showDeleteAccountForm() {
+  if (isAdminUser()) {
+    if (typeof showError === "function") showError("管理员账号不能在这里注销");
+    return;
+  }
+  const form = document.getElementById("delete-account-form");
+  const password = document.getElementById("delete-account-password");
+  const confirmation = document.getElementById("delete-account-confirmation");
+  if (password) password.value = "";
+  if (confirmation) confirmation.value = "";
+  if (form) form.classList.remove("hidden");
+}
+
+function closeDeleteAccountForm() {
+  const form = document.getElementById("delete-account-form");
+  if (form) form.classList.add("hidden");
+}
+
+async function submitDeleteAccount() {
+  const password = document.getElementById("delete-account-password")?.value || "";
+  const confirmation = document.getElementById("delete-account-confirmation")?.value?.trim() || "";
+  const btn = document.getElementById("delete-account-submit");
+  if (!password || confirmation !== "注销账号") {
+    if (typeof showError === "function") showError("请输入当前密码，并在确认框输入“注销账号”");
+    return;
+  }
+  if (!confirm("确认注销当前账号？注销后该账号将不能再登录。")) return;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch("/api/auth/delete-account", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ password, confirmation })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "注销账号失败");
+    clearAuthSession();
+    closeDeleteAccountForm();
+    lockAppForAuth("账号已注销，请使用其他账号登录");
+  } catch (e) {
+    if (typeof showError === "function") showError(e.message || "注销账号失败");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async function() {
   const form = document.getElementById("auth-form");
   const switchBtn = document.getElementById("auth-switch");
@@ -314,6 +360,9 @@ function jsArg(s) { return String(s || "").replace(/\\/g, "\\\\").replace(/'/g, 
 window.authHeaders = authHeaders;
 window.lockAppForAuth = lockAppForAuth;
 window.logoutAccount = logoutAccount;
+window.showDeleteAccountForm = showDeleteAccountForm;
+window.closeDeleteAccountForm = closeDeleteAccountForm;
+window.submitDeleteAccount = submitDeleteAccount;
 window.getAuthUser = getAuthUser;
 window.isAdminUser = isAdminUser;
 window.syncAdminEntryVisibility = syncAdminEntryVisibility;

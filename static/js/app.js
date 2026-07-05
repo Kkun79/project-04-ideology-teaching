@@ -243,27 +243,31 @@ async function saveStudyTour() {
 
 function renderAdminUserItem(user) {
  const isDisabled = (user.status || "") === "disabled";
+ const isDeleted = (user.status || "") === "deleted";
  const isAdmin = !!user.is_admin;
  const nextStatus = isDisabled ? "active" : "disabled";
- const statusLabel = isDisabled ? "已停用" : "正常";
- const statusClass = isDisabled ? "is-disabled" : "is-active";
+ const statusLabel = isDeleted ? "已注销" : (isDisabled ? "已停用" : "正常");
+ const statusClass = isDeleted ? "is-disabled" : (isDisabled ? "is-disabled" : "is-active");
  const adminBadge = isAdmin ? '<span class="tag">管理员</span>' : "";
  const lastLogin = user.last_login_at ? esc(user.last_login_at) : "未记录";
  const createdAt = user.created_at ? esc(user.created_at) : "未记录";
- const statusButton = isAdmin
+ const statusButton = (isAdmin || isDeleted)
    ? ""
    : '<button class="btn btn-sm" onclick="toggleAdminUserStatus(\'' + jsArg(user.id) + '\',\'' + nextStatus + '\',\'' + jsArg(user.username) + '\')">' + (isDisabled ? "启用账号" : "停用账号") + '</button>';
+ const passwordButton = isDeleted
+   ? ""
+   : '<button class="btn btn-secondary btn-sm" onclick="openAdminPasswordForm(\'' + jsArg(user.id) + '\',\'' + jsArg(user.username) + '\')">重置密码</button>';
  return '<div class="data-item">' +
    '<div class="data-item-header">' +
      '<div class="admin-user-header">' +
        '<div class="data-item-title">' + esc(user.username) + '</div>' +
        '<span class="admin-user-status ' + statusClass + '">' + statusLabel + '</span>' +
        adminBadge +
-     '</div>' +
-     '<div class="data-item-actions admin-user-actions">' +
-       '<button class="btn btn-secondary btn-sm" onclick="openAdminPasswordForm(\'' + jsArg(user.id) + '\',\'' + jsArg(user.username) + '\')">重置密码</button>' +
-       statusButton +
-     '</div>' +
+      '</div>' +
+      '<div class="data-item-actions admin-user-actions">' +
+        passwordButton +
+        statusButton +
+      '</div>' +
    '</div>' +
    '<div class="data-item-body">' +
      '<div class="admin-user-meta">' +

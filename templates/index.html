@@ -124,13 +124,27 @@
    <div class="topbar-actions">
      <span class="badge user-badge" id="currentUserBadge"></span>
      <button class="btn btn-secondary btn-sm hidden" id="admin-users-entry" onclick="navigateTo('admin-users')">账号管理</button>
+     <button class="btn btn-danger btn-sm" onclick="showDeleteAccountForm()">注销账号</button>
      <button class="btn btn-secondary btn-sm" onclick="logoutAccount()">退出登录</button>
      <span class="badge" id="statusBadge">就绪</span>
    </div>
- </header>
+  </header>
 
- <!-- 内容面板容器 -->
- <div class="content-area" id="contentArea">
+  <div id="delete-account-form" class="form-overlay hidden">
+    <div class="form-card account-danger-card">
+      <h4>注销账号</h4>
+      <p class="hint">注销后该账号将不能再登录，当前登录状态会立即失效。为防止误操作，请输入当前密码，并在确认框输入“注销账号”。</p>
+      <input id="delete-account-password" type="password" autocomplete="current-password" placeholder="请输入当前密码" />
+      <input id="delete-account-confirmation" placeholder="请输入：注销账号" />
+      <div class="form-actions">
+        <button class="btn" onclick="closeDeleteAccountForm()">取消</button>
+        <button class="btn btn-danger" id="delete-account-submit" onclick="submitDeleteAccount()">确认注销</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 内容面板容器 -->
+  <div class="content-area" id="contentArea">
 
    <!-- 首页面板 -->
    <div class="panel active" id="panel-dashboard">
