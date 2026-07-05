@@ -20,8 +20,15 @@ Configure these secrets in the Space settings:
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD`
 - `DEEPSEEK_API_KEY`
+- `APP_REGISTRATION_INVITE_CODES`
+
+Optional override:
+
+- `APP_REGISTRATION_MODE`
 
 ## Notes
 
-- Public registration is disabled in the container by default.
+- The container defaults to `APP_REGISTRATION_MODE=invite_only`.
+- Registration succeeds only when the user enters a valid invite code from
+  `APP_REGISTRATION_INVITE_CODES`.
 - The app listens on port `7860`.

@@ -41,3 +41,14 @@ In the Hugging Face Space settings, add these secrets:
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD`
 - `DEEPSEEK_API_KEY`
+- `APP_REGISTRATION_INVITE_CODES`
+
+Optional override:
+
+- `APP_REGISTRATION_MODE=invite_only`
+
+Example invite codes:
+
+```text
+student-a01,student-a02,student-a03
+```
