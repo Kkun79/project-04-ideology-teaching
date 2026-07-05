@@ -782,13 +782,14 @@ def list_users() -> list[dict]:
                     """
                     SELECT id, username, password_hash, salt, status, created_at, last_login_at
                     FROM users
+                    WHERE status <> 'deleted'
                     ORDER BY created_at DESC, username ASC
                     """
                 )
                 rows = cur.fetchall()
         return [_public_user(_row_to_user(row) or {}) for row in rows]
 
-    users = [_public_user(user) for user in _read_users()]
+    users = [_public_user(user) for user in _read_users() if user.get("status", "active") != "deleted"]
     users.sort(key=lambda item: (item.get("created_at", ""), item.get("username", "")), reverse=True)
     return users
 

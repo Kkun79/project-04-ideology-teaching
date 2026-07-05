@@ -296,7 +296,7 @@ async function loadAdminUsers(showToast = false) {
  if (typeof showLoading === "function") showLoading("admin-users-list");
  try {
    const data = await api("/api/admin/users");
-   const items = Array.isArray(data.items) ? data.items : [];
+   const items = Array.isArray(data.items) ? data.items.filter(user => (user.status || "") !== "deleted") : [];
    if (summary) summary.textContent = items.length + " 个账号";
    container.innerHTML = items.length
      ? items.map(renderAdminUserItem).join("")
