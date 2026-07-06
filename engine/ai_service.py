@@ -41,11 +41,42 @@ def _load_local_env() -> None:
 
 _load_local_env()
 
+
+def _pick_env(*names: str, default: str = "") -> str:
+    for name in names:
+        value = os.getenv(name)
+        if value is None:
+            continue
+        cleaned = str(value).strip()
+        if cleaned:
+            return cleaned
+    return default
+
+
+def _current_ai_config() -> dict:
+    api_key = _pick_env("OPENAI_API_KEY", "DEEPSEEK_API_KEY")
+    api_base = _pick_env("OPENAI_API_BASE", "DEEPSEEK_API_BASE", default="https://api.deepseek.com/v1").rstrip("/")
+    api_model = _pick_env("OPENAI_MODEL", "DEEPSEEK_MODEL", default="deepseek-chat")
+    return {
+        "api_key": api_key,
+        "api_base": api_base,
+        "api_model": api_model,
+        "has_api": bool(api_key),
+    }
+
+
+def _refresh_ai_config() -> dict:
+    global API_KEY, API_BASE, API_MODEL, _HAS_API
+    config = _current_ai_config()
+    API_KEY = config["api_key"]
+    API_BASE = config["api_base"]
+    API_MODEL = config["api_model"]
+    _HAS_API = config["has_api"]
+    return config
+
+
 # API 配置
-API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("DEEPSEEK_API_KEY", "")
-API_BASE = os.getenv("OPENAI_API_BASE", "https://api.deepseek.com/v1").rstrip("/")
-API_MODEL = os.getenv("OPENAI_MODEL", "deepseek-chat")
-_HAS_API = bool(API_KEY)
+_refresh_ai_config()
 
 
 def _call_llm(
@@ -53,11 +84,12 @@ def _call_llm(
     temperature: float = 0.7,
     max_tokens: int = 2048,
 ) -> Optional[str]:
-    if not _HAS_API:
+    config = _refresh_ai_config()
+    if not config["has_api"]:
         return None
 
     body = {
-        "model": API_MODEL,
+        "model": config["api_model"],
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
@@ -65,10 +97,10 @@ def _call_llm(
     data = json.dumps(body, ensure_ascii=False).encode("utf-8")
 
     req = urllib.request.Request(
-        f"{API_BASE}/chat/completions",
+        f"{config['api_base']}/chat/completions",
         data=data,
         headers={
-            "Authorization": f"Bearer {API_KEY}",
+            "Authorization": f"Bearer {config['api_key']}",
             "Content-Type": "application/json",
         },
         method="POST",
@@ -78,9 +110,55 @@ def _call_llm(
         with urllib.request.urlopen(req, timeout=60) as resp:
             result = json.loads(resp.read().decode("utf-8"))
             return result["choices"][0]["message"]["content"]
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            detail = exc.read().decode("utf-8", errors="ignore")[:300]
+        except OSError:
+            detail = ""
+        print(f"[AI Service] API 调用失败 (HTTPError {exc.code}): {detail or exc.reason}")
+        return None
     except (urllib.error.URLError, json.JSONDecodeError, KeyError, OSError) as e:
         print(f"[AI Service] API 调用失败 ({type(e).__name__}): {e}")
         return None
+
+
+def get_ai_runtime_status(probe: bool = False) -> dict:
+    config = _refresh_ai_config()
+    provider = "deepseek-compatible" if "deepseek" in config["api_base"].lower() else "openai-compatible"
+    status = {
+        "configured": config["has_api"],
+        "provider": provider,
+        "api_base": config["api_base"],
+        "model": config["api_model"],
+    }
+    if not config["has_api"]:
+        status.update({
+            "ok": False,
+            "reason": "missing_api_key",
+        })
+        return status
+
+    status["ok"] = True
+    if not probe:
+        return status
+
+    probe_reply = _call_llm(
+        [
+            {"role": "system", "content": "你是一个用于健康检查的简短助手。只回复 ok。"},
+            {"role": "user", "content": "请只回复 ok"},
+        ],
+        temperature=0.1,
+        max_tokens=16,
+    )
+    if probe_reply and "ok" in probe_reply.lower():
+        status["probe_ok"] = True
+        return status
+
+    status["ok"] = False
+    status["probe_ok"] = False
+    status["reason"] = "probe_failed"
+    return status
 
 
 def _llm_json(messages: list, temperature: float = 0.7) -> Optional[dict]:
@@ -716,7 +794,7 @@ def generate_ancestor_dialogue(leader: str, question: str, history: list | None 
         f"学生新问题：{clean_question}\n\n"
         "请输出 JSON：answer 表示第一人称回应，follow_up 表示一句继续追问邀请。只输出 JSON。"
     )
-    if not _HAS_API:
+    if not _refresh_ai_config()["has_api"]:
         return _ancestor_ai_unavailable(leader, "未配置 API Key")
 
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]

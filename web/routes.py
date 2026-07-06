@@ -156,6 +156,11 @@ def register_routes(app: FastAPI, root: Path, upload_root: Path) -> None:
     async def database_health():
         return database.health_check()
 
+    @app.get("/api/admin/ai-health")
+    async def ai_health(request: Request, probe: int = 0):
+        _require_admin_user(request)
+        return ai.get_ai_runtime_status(probe=bool(probe))
+
     @app.get("/api/admin/users")
     async def admin_list_users(request: Request):
         _require_admin_user(request)
